@@ -1,0 +1,283 @@
+<!-- Загрузите файлы изображений book1.jpg, book2.jpg, book3.jpg в ту же папку, что и этот index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Родное слово — К. Д. Ушинский</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --accent: #5b3fd3;
+      --accent-dark: #4a32b4;
+      --text-color: #1f1f1f;
+      --text-muted: #555555;
+      --background: #f4f5fb;
+      --card-bg: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--background);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .page {
+      width: min(1100px, 100%);
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(49, 54, 68, 0.08);
+      padding: 32px clamp(16px, 4vw, 48px) 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 2.5rem);
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      font-size: clamp(1rem, 2vw, 1.1rem);
+      color: var(--text-muted);
+    }
+
+    .content {
+      display: flex;
+      gap: clamp(24px, 4vw, 48px);
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+
+    .gallery {
+      flex: 1 1 320px;
+      min-width: 280px;
+      background: linear-gradient(180deg, rgba(91, 63, 211, 0.08) 0%, rgba(91, 63, 211, 0.02) 100%);
+      border-radius: 18px;
+      position: relative;
+      padding: clamp(20px, 5vw, 32px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .gallery img {
+      max-width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      border-radius: 14px;
+      box-shadow: 0 12px 24px rgba(23, 26, 38, 0.16);
+      transition: transform 0.4s ease, opacity 0.4s ease;
+    }
+
+    .gallery button {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.85);
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      color: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(23, 26, 38, 0.12);
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .gallery button:hover {
+      background: rgba(255, 255, 255, 0.98);
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    .gallery button:active {
+      transform: translateY(-50%) scale(0.96);
+    }
+
+    .gallery button.prev {
+      left: clamp(12px, 2vw, 24px);
+    }
+
+    .gallery button.next {
+      right: clamp(12px, 2vw, 24px);
+    }
+
+    .description {
+      flex: 1 1 340px;
+      min-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .description h2 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2.8vw, 2rem);
+      letter-spacing: 0.015em;
+    }
+
+    .description p {
+      margin: 0;
+      line-height: 1.6;
+      font-size: 1.05rem;
+      color: var(--text-muted);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .button-primary,
+    .button-secondary {
+      border-radius: 999px;
+      padding: 14px 28px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+      border: 2px solid transparent;
+      text-align: center;
+      min-width: 180px;
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #6e5aec 100%);
+      color: #ffffff;
+      box-shadow: 0 14px 24px rgba(68, 56, 167, 0.28);
+    }
+
+    .button-primary:hover {
+      background: linear-gradient(135deg, var(--accent-dark) 0%, #5b3fd3 100%);
+      box-shadow: 0 18px 28px rgba(68, 56, 167, 0.32);
+      transform: translateY(-2px);
+    }
+
+    .button-primary:active {
+      transform: translateY(0);
+    }
+
+    .button-secondary {
+      background: #ffffff;
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 10px 18px rgba(91, 63, 211, 0.12);
+    }
+
+    .button-secondary:hover {
+      background: rgba(91, 63, 211, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .button-secondary:active {
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 16px 12px;
+      }
+
+      .page {
+        padding: 24px clamp(14px, 6vw, 24px) 32px;
+      }
+
+      .gallery {
+        order: 0;
+      }
+
+      .description {
+        order: 1;
+      }
+
+      .actions {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .button-primary,
+      .button-secondary {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>«Родное слово»</h1>
+      <p>К. Д. Ушинский</p>
+    </header>
+    <main class="content">
+      <section class="gallery" aria-label="Иллюстрации книги">
+        <button class="prev" type="button" aria-label="Предыдущая страница">&#8249;</button>
+        <img src="book1.jpg" alt="Иллюстрация из книги Родное слово" id="book-image" />
+        <button class="next" type="button" aria-label="Следующая страница">&#8250;</button>
+      </section>
+      <section class="description">
+        <h2>О книге</h2>
+        <p>«Родное слово» К. Д. Ушинского — одно из самых известных произведений отечественной педагогической литературы XIX века. Учебник был создан для начальной школы и положил начало новому подходу к обучению грамоте и чтению.</p>
+        <p>Книга объединяет фольклорные произведения, народные сказки, пословицы и рассказы, которые помогают детям осваивать язык, развивают интерес к чтению и формируют нравственные ориентиры. Ушинский уделял особое внимание понятным детям образам и живому народному слову.</p>
+        <p>Публикация сопровождалась методическими рекомендациями для учителей и родителей, благодаря которым учебник десятилетиями оставался неизменным спутником школьного образования.</p>
+        <div class="actions">
+          <button class="button-primary" type="button">Читать онлайн</button>
+          <button class="button-secondary" type="button">Подробнее</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const images = ["book1.jpg", "book2.jpg", "book3.jpg"];
+    let currentIndex = 0;
+
+    const imageElement = document.getElementById("book-image");
+    const prevButton = document.querySelector(".gallery .prev");
+    const nextButton = document.querySelector(".gallery .next");
+
+    function updateImage(index) {
+      currentIndex = (index + images.length) % images.length;
+      imageElement.style.opacity = 0;
+      imageElement.addEventListener(
+        "transitionend",
+        function handleTransition() {
+          imageElement.removeEventListener("transitionend", handleTransition);
+          imageElement.src = images[currentIndex];
+          requestAnimationFrame(() => {
+            imageElement.style.opacity = 1;
+          });
+        },
+        { once: true }
+      );
+    }
+
+    prevButton.addEventListener("click", () => {
+      updateImage(currentIndex - 1);
+    });
+
+    nextButton.addEventListener("click", () => {
+      updateImage(currentIndex + 1);
+    });
+  </script>
+</body>
+</html>
