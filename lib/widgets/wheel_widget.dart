@@ -298,8 +298,7 @@ class _WheelHub extends StatelessWidget {
       ),
       child: const Center(
         child: Text(
-          'Поле
-чудес',
+          'Поле\nчудес',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
