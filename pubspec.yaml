@@ -15,3 +15,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/questions.json
+    - assets/mystery_questions.json

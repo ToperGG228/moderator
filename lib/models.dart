@@ -33,6 +33,32 @@ class WheelSector {
   final Color? color;
 }
 
+/// Результат обработки сектора барабана.
+class SectorResolution {
+  const SectorResolution({
+    this.message,
+    this.allowLetterGuess = true,
+    this.turnEnds = false,
+    this.requiresMysteryQuestion = false,
+    this.allowLetterSelection = false,
+  });
+
+  /// Сообщение для отображения игроку.
+  final String? message;
+
+  /// Можно ли угадывать букву после сектора.
+  final bool allowLetterGuess;
+
+  /// Завершает ли сектор ход команды.
+  final bool turnEnds;
+
+  /// Требуется ли показать дополнительный вопрос.
+  final bool requiresMysteryQuestion;
+
+  /// Может ли команда выбрать букву для открытия.
+  final bool allowLetterSelection;
+}
+
 /// Модель вопроса и ответа игры.
 class GameQuestion {
   const GameQuestion({

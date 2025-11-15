@@ -33,7 +33,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   double _startRotation = 0;
   double _targetRotation = 0;
   int _currentIndex = 0;
-  int _pendingExtra = 0;
+  int _targetIndex = 0;
   bool _spinning = false;
 
   double get _segmentAngle => 2 * pi / widget.sectors.length;
@@ -44,6 +44,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex % widget.sectors.length;
+    _targetIndex = _currentIndex;
     _rotation = -_currentIndex * _segmentAngle;
     _startRotation = _rotation;
     _targetRotation = _rotation;
@@ -67,6 +68,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
       _currentIndex = widget.initialIndex % widget.sectors.length;
+      _targetIndex = _currentIndex;
       _rotation = -_currentIndex * _segmentAngle;
       _startRotation = _rotation;
       _targetRotation = _rotation;
@@ -86,18 +88,22 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     }
 
     _spinning = true;
-    final int extra = _random.nextInt(widget.sectors.length);
+    final int targetIndex = _chooseTargetIndex();
+    int extra = (_currentIndex - targetIndex) % widget.sectors.length;
+    if (extra <= 0) {
+      extra += widget.sectors.length;
+    }
     final int fullTurns = 4 + _random.nextInt(3); // 4–6 полных оборотов.
     final double totalAngle = fullTurns * 2 * pi + extra * _segmentAngle;
 
-    _pendingExtra = extra;
+    _targetIndex = targetIndex;
     _startRotation = _rotation;
     _targetRotation = _rotation + totalAngle;
 
     final Completer<WheelSector> completer = Completer<WheelSector>();
 
     _controller.forward(from: 0).whenComplete(() {
-      final WheelSector sector = widget.sectors[_currentIndex];
+      final WheelSector sector = widget.sectors[_targetIndex];
       completer.complete(sector);
     });
 
@@ -105,21 +111,53 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   }
 
   void _finishSpin() {
+    // Пересчитываем индекс сектора под стрелкой.
+    _currentIndex = _targetIndex % widget.sectors.length;
+
     // Нормализуем угол, чтобы он не рос бесконечно.
-    _rotation = _targetRotation % (2 * pi);
+    _rotation = -_currentIndex * _segmentAngle;
     _startRotation = _rotation;
     _targetRotation = _rotation;
-
-    // Пересчитываем индекс сектора под стрелкой.
-    _currentIndex = (_currentIndex - _pendingExtra) % widget.sectors.length;
-    if (_currentIndex < 0) {
-      _currentIndex += widget.sectors.length;
-    }
 
     _spinning = false;
     final WheelSector sector = widget.sectors[_currentIndex];
     widget.onSpinComplete?.call(sector);
     setState(() {});
+  }
+
+  int _chooseTargetIndex() {
+    final List<double> weights = widget.sectors
+        .map((WheelSector sector) => _sectorWeight(sector))
+        .toList();
+    final double totalWeight =
+        weights.fold<double>(0, (double sum, double value) => sum + value);
+    double roll = _random.nextDouble() * totalWeight;
+    for (int i = 0; i < weights.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) {
+        return i;
+      }
+    }
+    return weights.length - 1;
+  }
+
+  double _sectorWeight(WheelSector sector) {
+    switch (sector.type) {
+      case SectorType.points:
+        return 1.0;
+      case SectorType.bonus:
+        return 0.6;
+      case SectorType.mystery:
+        return 0.6;
+      case SectorType.prize:
+        return 0.6;
+      case SectorType.bankrupt:
+        return 1.45;
+      case SectorType.doubleScore:
+        return 0.7;
+      case SectorType.miss:
+        return 0.6;
+    }
   }
 
   @override
@@ -209,21 +247,21 @@ class _WheelPainter extends CustomPainter {
 
       // Рисуем подписи секторов.
       final TextPainter textPainter = TextPainter(
-        text: TextSpan(
-          text: sector.label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+          text: TextSpan(
+            text: sector.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
+          textDirection: TextDirection.ltr,
       )..layout();
       final double angle = startAngle + segmentAngle / 2;
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(angle);
-      canvas.translate(0, -radius * 0.62);
+      canvas.translate(0, -radius * 0.78);
       textPainter.paint(
         canvas,
         Offset(-textPainter.width / 2, -textPainter.height / 2),
@@ -304,18 +342,18 @@ class _PointerPainter extends CustomPainter {
           Colors.amberAccent.shade200,
           Colors.orangeAccent.shade200,
         ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final Path path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height * 0.75)
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(size.width, size.height * 0.25)
       ..quadraticBezierTo(
         size.width / 2,
-        size.height,
         0,
-        size.height * 0.75,
+        0,
+        size.height * 0.25,
       )
       ..close();
 

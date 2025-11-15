@@ -7,11 +7,13 @@ class LetterKeyboard extends StatelessWidget {
     required this.letters,
     required this.disabledLetters,
     required this.onLetterPressed,
+    this.isEnabled = true,
   });
 
   final List<String> letters;
   final Set<String> disabledLetters;
   final ValueChanged<String> onLetterPressed;
+  final bool isEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,7 @@ class LetterKeyboard extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: letters.map((String letter) {
-            final bool isDisabled = disabledLetters.contains(letter);
+            final bool isDisabled = disabledLetters.contains(letter) || !isEnabled;
             return _LetterTile(
               letter: letter,
               disabled: isDisabled,

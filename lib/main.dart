@@ -9,8 +9,8 @@ import 'widgets/letter_keyboard.dart';
 import 'widgets/score_row.dart';
 import 'widgets/wheel_widget.dart';
 
-Future<List<GameQuestion>> loadQuestions() async {
-  final String jsonString = await rootBundle.loadString('assets/questions.json');
+Future<List<GameQuestion>> _loadQuestions(String assetPath) async {
+  final String jsonString = await rootBundle.loadString(assetPath);
   final List<dynamic> decoded = json.decode(jsonString) as List<dynamic>;
   return decoded
       .map((dynamic item) => GameQuestion(
@@ -18,6 +18,13 @@ Future<List<GameQuestion>> loadQuestions() async {
             answer: (item['answer'] as String).toUpperCase(),
           ))
       .toList();
+}
+
+Future<_GameBundle> loadGameData() async {
+  final List<GameQuestion> mainQuestions = await _loadQuestions('assets/questions.json');
+  final List<GameQuestion> mysteryQuestions =
+      await _loadQuestions('assets/mystery_questions.json');
+  return _GameBundle(questions: mainQuestions, mysteryQuestions: mysteryQuestions);
 }
 
 void main() {
@@ -61,9 +68,9 @@ class GameLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<GameQuestion>>(
-      future: loadQuestions(),
-      builder: (BuildContext context, AsyncSnapshot<List<GameQuestion>> snapshot) {
+    return FutureBuilder<_GameBundle>(
+      future: loadGameData(),
+      builder: (BuildContext context, AsyncSnapshot<_GameBundle> snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
             backgroundColor: Colors.transparent,
@@ -75,7 +82,7 @@ class GameLoader extends StatelessWidget {
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.questions.isEmpty) {
           return const Scaffold(
             backgroundColor: Colors.transparent,
             body: _GameBackground(
@@ -86,16 +93,24 @@ class GameLoader extends StatelessWidget {
           );
         }
 
-        return GameScreen(questions: snapshot.data!);
+        return GameScreen(
+          questions: snapshot.data!.questions,
+          mysteryQuestions: snapshot.data!.mysteryQuestions,
+        );
       },
     );
   }
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.questions});
+  const GameScreen({
+    super.key,
+    required this.questions,
+    required this.mysteryQuestions,
+  });
 
   final List<GameQuestion> questions;
+  final List<GameQuestion> mysteryQuestions;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -109,13 +124,17 @@ class _GameScreenState extends State<GameScreen> {
   final List<String> _letters = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('');
 
   bool _isSpinning = false;
+  bool _canGuessLetter = false;
   bool _finalDialogShown = false;
   WheelSector? _lastSector;
 
   @override
   void initState() {
     super.initState();
-    _engine = GameEngine(questions: widget.questions);
+    _engine = GameEngine(
+      questions: widget.questions,
+      specialQuestions: widget.mysteryQuestions,
+    );
     _sectors = buildDefaultSectors();
     _initialWheelIndex = _engine.randomStartIndex(_sectors.length);
   }
@@ -126,26 +145,68 @@ class _GameScreenState extends State<GameScreen> {
     }
     setState(() {
       _isSpinning = true;
+      _canGuessLetter = false;
     });
     _wheelKey.currentState?.spinWheel();
   }
 
-  void _onSectorComplete(WheelSector sector) {
-    final String? message = _engine.applySector(sector);
+  Future<void> _onSectorComplete(WheelSector sector) async {
+    final SectorResolution resolution = _engine.applySector(sector);
     setState(() {
       _isSpinning = false;
       _lastSector = sector;
     });
 
-    if (sector.type == SectorType.prize || sector.type == SectorType.mystery) {
-      _showDialog(sector.label, message ?? 'Особый сектор!');
-    } else if (message != null && mounted) {
-      _showSnack(message);
+    if (resolution.message != null) {
+      _showSnack(resolution.message!);
     }
+
+    bool allowGuess = resolution.allowLetterGuess && !resolution.turnEnds;
+
+    if (resolution.requiresMysteryQuestion) {
+      final bool? success = await _showMysteryQuestionDialog();
+      if (!mounted) {
+        return;
+      }
+      if (success != null) {
+        _engine.applyMysteryOutcome(success);
+        setState(() {});
+        _showSnack(
+          success ? 'Верный ответ! +1000 очков.' : 'Ответ неверный. -200 очков.',
+        );
+      }
+    }
+
+    if (resolution.allowLetterSelection) {
+      final bool questionCleared = await _showLetterSelectionDialog();
+      if (!mounted) {
+        return;
+      }
+      if (questionCleared) {
+        allowGuess = false;
+      }
+    }
+
+    if (_engine.isGameFinished && !_finalDialogShown) {
+      _finalDialogShown = true;
+      await _showDialog('Игра окончена', 'Все вопросы отгаданы! Сыграем ещё раз?');
+      if (!mounted) {
+        return;
+      }
+      allowGuess = false;
+    }
+
+    setState(() {
+      _canGuessLetter = allowGuess && !_engine.isGameFinished;
+    });
   }
 
   void _onLetterPressed(String letter) {
     if (_engine.isGameFinished) {
+      return;
+    }
+    if (!_canGuessLetter) {
+      _showSnack('Сначала раскрутите барабан!');
       return;
     }
 
@@ -153,6 +214,7 @@ class _GameScreenState extends State<GameScreen> {
     final bool found = _engine.guessLetter(letter);
     final bool questionChanged = _engine.currentQuestionNumber != previousQuestion;
     setState(() {
+      _canGuessLetter = false;
       if (questionChanged) {
         _initialWheelIndex = _engine.randomStartIndex(_sectors.length);
       }
@@ -177,6 +239,7 @@ class _GameScreenState extends State<GameScreen> {
       _engine.resetGame();
       _initialWheelIndex = _engine.randomStartIndex(_sectors.length);
       _finalDialogShown = false;
+      _canGuessLetter = false;
     });
   }
 
@@ -218,6 +281,147 @@ class _GameScreenState extends State<GameScreen> {
         );
       },
     );
+  }
+
+  Future<bool?> _showMysteryQuestionDialog() async {
+    if (!mounted) return null;
+    final GameQuestion? question = _engine.drawMysteryQuestion();
+    if (question == null) {
+      _showSnack('Дополнительные вопросы закончились.');
+      return null;
+    }
+
+    final TextEditingController controller = TextEditingController();
+    String? errorText;
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, void Function(void Function()) dialogSetState) {
+            return AlertDialog(
+              title: const Text('Дополнительный вопрос'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    question.question,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.characters,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Ответ',
+                      errorText: errorText,
+                    ),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    final String value = controller.text.trim().toUpperCase();
+                    if (value.isEmpty) {
+                      dialogSetState(() {
+                        errorText = 'Введите ответ';
+                      });
+                      return;
+                    }
+                    Navigator.of(context).pop(value == question.answer);
+                  },
+                  child: const Text('Принять ответ'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool> _showLetterSelectionDialog() async {
+    if (!mounted) return false;
+    final List<String> available = _engine.availableLettersForReveal;
+    if (available.isEmpty) {
+      _showSnack('Все буквы уже открыты.');
+      return false;
+    }
+
+    final String? selected = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Выберите букву для открытия'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: available
+                  .map(
+                    (String letter) => ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(letter),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF334AC2),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        letter,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) {
+      return false;
+    }
+
+    if (selected == null) {
+      return false;
+    }
+
+    final int previousQuestion = _engine.currentQuestionNumber;
+    final bool revealed = _engine.revealLetterFreely(selected);
+    final bool questionChanged = _engine.currentQuestionNumber != previousQuestion;
+
+    if (revealed) {
+      setState(() {});
+      _showSnack('Буква $selected открыта!');
+    }
+
+    if (questionChanged) {
+      setState(() {
+        _initialWheelIndex = _engine.randomStartIndex(_sectors.length);
+      });
+      _showSnack('Слово отгадано! Следующий вопрос.');
+    }
+
+    return questionChanged;
   }
 
   Widget _buildQuestionBlock() {
@@ -336,7 +540,9 @@ class _GameScreenState extends State<GameScreen> {
             key: _wheelKey,
             sectors: _sectors,
             initialIndex: _initialWheelIndex,
-            onSpinComplete: _onSectorComplete,
+            onSpinComplete: (WheelSector sector) {
+              _onSectorComplete(sector);
+            },
             size: 300,
           ),
         ),
@@ -399,6 +605,7 @@ class _GameScreenState extends State<GameScreen> {
                 LetterKeyboard(
                   letters: _letters,
                   disabledLetters: _engine.usedLetters,
+                  isEnabled: _canGuessLetter && !_engine.isGameFinished,
                   onLetterPressed: _onLetterPressed,
                 ),
               ],
@@ -408,6 +615,16 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+}
+
+class _GameBundle {
+  const _GameBundle({
+    required this.questions,
+    required this.mysteryQuestions,
+  });
+
+  final List<GameQuestion> questions;
+  final List<GameQuestion> mysteryQuestions;
 }
 
 class _AnswerTile extends StatelessWidget {

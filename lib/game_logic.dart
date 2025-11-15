@@ -8,6 +8,7 @@ import 'models.dart';
 class GameEngine {
   GameEngine({
     required this.questions,
+    required this.specialQuestions,
   })  : teamNames = const ['Команда 1', 'Команда 2', 'Команда 3'],
         scores = List<int>.filled(3, 0),
         _random = Random() {
@@ -22,6 +23,9 @@ class GameEngine {
 
   /// Все вопросы игры.
   final List<GameQuestion> questions;
+
+  /// Дополнительные вопросы для сектора «?».
+  final List<GameQuestion> specialQuestions;
 
   /// Текущий индекс вопроса.
   int _currentQuestionIndex = 0;
@@ -56,6 +60,18 @@ class GameEngine {
   /// Возвращает символы ответа текущего вопроса.
   List<String> get answerCharacters => List<String>.unmodifiable(_answerCharacters);
 
+  /// Список букв, которые ещё можно открыть вручную.
+  List<String> get availableLettersForReveal {
+    final Set<String> result = <String>{};
+    for (int i = 0; i < _answerCharacters.length; i++) {
+      if (_answerCharacters[i] != ' ' && !_revealed[i]) {
+        result.add(_answerCharacters[i]);
+      }
+    }
+    final List<String> sorted = result.toList()..sort();
+    return sorted;
+  }
+
   /// Номер текущего вопроса.
   int get currentQuestionNumber => _currentQuestionIndex;
 
@@ -68,31 +84,48 @@ class GameEngine {
     _prepareQuestion();
   }
 
-  /// Обрабатывает сектор барабана и возвращает текст результата для отображения.
-  String? applySector(WheelSector sector) {
+  /// Обрабатывает сектор барабана и возвращает описание эффекта.
+  SectorResolution applySector(WheelSector sector) {
     switch (sector.type) {
       case SectorType.points:
         final int points = sector.points ?? 0;
         scores[activeTeamIndex] += points;
-        return 'Команда получает $points очков!';
+        return SectorResolution(message: 'Команда получает $points очков!');
       case SectorType.bankrupt:
         scores[activeTeamIndex] = 0;
         _nextTeam();
-        return 'Банкрот! Ход переходит следующей команде.';
+        return const SectorResolution(
+          message: 'Банкрот! Ход переходит следующей команде.',
+          allowLetterGuess: false,
+          turnEnds: true,
+        );
       case SectorType.doubleScore:
         scores[activeTeamIndex] *= 2;
-        return 'Очки команды удваиваются!';
+        return const SectorResolution(message: 'Очки команды удваиваются!');
       case SectorType.bonus:
         final int bonus = sector.points ?? 100;
         scores[activeTeamIndex] += bonus;
-        return 'Бонус +$bonus очков!';
+        return SectorResolution(
+          message: 'Бонус +$bonus очков! Выберите букву для открытия.',
+          allowLetterSelection: true,
+        );
       case SectorType.prize:
-        return 'Сектор «Приз»! Выберите виртуальный подарок!';
+        scores[activeTeamIndex] += 500;
+        return const SectorResolution(
+          message: 'Сектор «Приз»! +500 очков команде.',
+        );
       case SectorType.mystery:
-        return 'Сектор «?»! Ведущий задаёт дополнительный вопрос.';
+        return const SectorResolution(
+          message: 'Сектор «?»! Ответьте на дополнительный вопрос.',
+          requiresMysteryQuestion: true,
+        );
       case SectorType.miss:
         _nextTeam();
-        return 'Ничего не происходит. Ход переходит следующей команде.';
+        return const SectorResolution(
+          message: 'Ничего не происходит. Ход переходит следующей команде.',
+          allowLetterGuess: false,
+          turnEnds: true,
+        );
     }
   }
 
@@ -120,6 +153,42 @@ class GameEngine {
     }
 
     return found;
+  }
+
+  /// Открывает выбранную букву без штрафа и возвращает true, если она нашлась.
+  bool revealLetterFreely(String letter) {
+    final String normalized = letter.toUpperCase();
+    bool revealedAny = false;
+    for (int i = 0; i < _answerCharacters.length; i++) {
+      if (_answerCharacters[i] == normalized && !_revealed[i]) {
+        _revealed[i] = true;
+        revealedAny = true;
+      }
+    }
+    if (revealedAny) {
+      usedLetters.add(normalized);
+      if (_revealed.every((bool value) => value)) {
+        _advanceQuestion();
+      }
+    }
+    return revealedAny;
+  }
+
+  /// Применяет результат ответа на дополнительный вопрос.
+  void applyMysteryOutcome(bool isCorrect) {
+    if (isCorrect) {
+      scores[activeTeamIndex] += 1000;
+    } else {
+      scores[activeTeamIndex] -= 200;
+    }
+  }
+
+  /// Возвращает случайный дополнительный вопрос.
+  GameQuestion? drawMysteryQuestion() {
+    if (specialQuestions.isEmpty) {
+      return null;
+    }
+    return specialQuestions[_random.nextInt(specialQuestions.length)];
   }
 
   /// Переход к следующей команде.
