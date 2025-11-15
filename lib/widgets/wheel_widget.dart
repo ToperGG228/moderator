@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../models.dart';
+import '../wheel_physics.dart';
 
 /// Виджет барабана с анимацией вращения.
 class WheelWidget extends StatefulWidget {
@@ -28,6 +29,7 @@ class WheelWidget extends StatefulWidget {
 class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   final Random _random = Random();
+  late WheelPhysics _physics;
 
   double _rotation = 0;
   double _startRotation = 0;
@@ -39,18 +41,17 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   bool _spinning = false;
   Completer<WheelSector>? _spinCompleter;
 
-  double get _segmentAngle => 2 * pi / widget.sectors.length;
+  double get _segmentAngle => _physics.segmentAngle;
 
   double get _pointerSize => widget.size * 0.22;
-
-  double get _baseRotation => -pi / 2 - _segmentAngle / 2;
 
   @override
   void initState() {
     super.initState();
+    _rebuildPhysics();
     _currentIndex = widget.initialIndex % widget.sectors.length;
     _targetIndex = _currentIndex;
-    _rotation = _angleForIndex(_currentIndex);
+    _rotation = _physics.angleForIndex(_currentIndex);
     _startRotation = _rotation;
     _endRotation = _rotation;
     _controller = AnimationController(
@@ -74,10 +75,17 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   @override
   void didUpdateWidget(covariant WheelWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
+    if (oldWidget.sectors.length != widget.sectors.length) {
+      _rebuildPhysics();
+      _currentIndex = _currentIndex % widget.sectors.length;
+      _targetIndex = _currentIndex;
+      _rotation = _physics.angleForIndex(_currentIndex);
+      _startRotation = _rotation;
+      _endRotation = _rotation;
+    } else if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
       _currentIndex = widget.initialIndex % widget.sectors.length;
       _targetIndex = _currentIndex;
-      _rotation = _angleForIndex(_currentIndex);
+      _rotation = _physics.angleForIndex(_currentIndex);
       _startRotation = _rotation;
       _endRotation = _rotation;
     }
@@ -95,7 +103,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       return Future<WheelSector>.value(widget.sectors[_currentIndex]);
     }
 
-    final _SpinPlan plan = _createSpinPlan();
+    final WheelSpinResult plan = _createSpinPlan();
 
     _spinning = true;
     _targetIndex = plan.targetIndex;
@@ -111,37 +119,18 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     return _spinCompleter!.future;
   }
 
-  _SpinPlan _createSpinPlan() {
+  WheelSpinResult _createSpinPlan() {
     final int pickedIndex = _pickWeightedSectorIndex();
-    final double startAngle = _rotation;
-    final double targetAngle =
-        _angleForIndex(pickedIndex) + _randomLandingOffset();
-    final int fullTurns = 4 + _random.nextInt(3);
-
-    final double delta = _positiveDelta(startAngle, targetAngle);
-    final double totalAngle = fullTurns * 2 * pi + delta;
-
-    const double accelSeconds = 1.5;
-    final double cruiseSeconds = 0.8 + _random.nextDouble() * 2.0;
-    final double decelSeconds = 0.4 + _random.nextDouble() * 1.0;
-    final double totalSeconds = accelSeconds + cruiseSeconds + decelSeconds;
-
-    final double t1 = accelSeconds / totalSeconds;
-    final double t2 = (accelSeconds + cruiseSeconds) / totalSeconds;
-
-    return _SpinPlan(
+    return _physics.computeSpin(
+      currentRotation: _rotation,
       targetIndex: pickedIndex,
-      startRotation: startAngle,
-      endRotation: startAngle + totalAngle,
-      duration: Duration(milliseconds: (totalSeconds * 1000).round()),
-      t1: t1,
-      t2: t2,
+      random: _random,
     );
   }
 
   void _finishSpin() {
     _currentIndex = _targetIndex % widget.sectors.length;
-    _rotation = _angleForIndex(_currentIndex);
+    _rotation = _physics.angleForIndex(_currentIndex);
     _startRotation = _rotation;
     _endRotation = _rotation;
 
@@ -209,20 +198,12 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     return 0.8 + 0.2 * eased;
   }
 
-  double _randomLandingOffset() {
-    return (_random.nextDouble() * 0.4 - 0.2) * _segmentAngle;
-  }
-
-  double _angleForIndex(int index) {
-    return _baseRotation - index * _segmentAngle;
-  }
-
-  double _positiveDelta(double start, double target) {
-    double delta = target - start;
-    while (delta <= 0) {
-      delta += 2 * pi;
-    }
-    return delta;
+  void _rebuildPhysics() {
+    final double baseRotation = -pi / 2 - (2 * pi / widget.sectors.length) / 2;
+    _physics = WheelPhysics(
+      sectorCount: widget.sectors.length,
+      baseRotation: baseRotation,
+    );
   }
 
   @override
@@ -282,24 +263,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       ),
     );
   }
-}
-
-class _SpinPlan {
-  const _SpinPlan({
-    required this.targetIndex,
-    required this.startRotation,
-    required this.endRotation,
-    required this.duration,
-    required this.t1,
-    required this.t2,
-  });
-
-  final int targetIndex;
-  final double startRotation;
-  final double endRotation;
-  final Duration duration;
-  final double t1;
-  final double t2;
 }
 
 class _WheelBasePainter extends CustomPainter {
