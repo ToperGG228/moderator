@@ -135,7 +135,7 @@ class WheelWidgetState extends State<WheelWidget> {
                   selected: _selectedController.stream,
                   animateFirst: false,
                   duration: _currentDuration,
-                  physics: const NoPanPhysics(),
+                  physics: NoPanPhysics(),
                   indicators: const <FortuneIndicator>[
                     FortuneIndicator(
                       alignment: Alignment.topCenter,
