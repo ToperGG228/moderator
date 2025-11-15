@@ -98,31 +98,59 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       return Future<WheelSector>.value(widget.sectors[_currentIndex]);
     }
 
+    final _SpinPlan plan = _createSpinPlan();
+
     _spinning = true;
-    _targetIndex = _pickWeightedSectorIndex();
-    _landingOffset = _randomLandingOffset();
-
-    final int fullTurns = 4 + _random.nextInt(3); // 4–6 полных оборотов.
-    final double baseAngle = _rotation;
-    final double idealAngle =
-        _normalizeAngle(_angleForIndex(_targetIndex, _landingOffset));
-
-    double delta = idealAngle - baseAngle;
-    while (delta <= 0) {
-      delta += 2 * pi;
-    }
-
-    final double totalAngle = fullTurns * 2 * pi + delta;
-
-    _startRotation = baseAngle;
-    _endRotation = baseAngle + totalAngle;
-
-    _configureTimings();
+    _targetIndex = plan.targetIndex;
+    _landingOffset = plan.landingOffset;
+    _startRotation = plan.startRotation;
+    _endRotation = plan.endRotation;
+    _t1 = plan.t1;
+    _t2 = plan.t2;
+    _controller.duration = plan.duration;
 
     _spinCompleter = Completer<WheelSector>();
     _controller.forward(from: 0);
 
     return _spinCompleter!.future;
+  }
+
+  _SpinPlan _createSpinPlan() {
+    final int pickedIndex = _pickWeightedSectorIndex();
+    final double landingOffset = _randomLandingOffset();
+    final double targetAngle =
+        _normalizeAngle(_angleForIndex(pickedIndex, landingOffset));
+    final double startAngle = _rotation;
+    final int fullTurns = 4 + _random.nextInt(3);
+    final double delta = _deltaToTarget(startAngle, targetAngle);
+    final double totalAngle = fullTurns * 2 * pi + delta;
+
+    final double accelSeconds = 1.5;
+    final double cruiseSeconds = 0.8 + _random.nextDouble() * 2.0;
+    final double decelSeconds = 0.4 + _random.nextDouble() * 1.0;
+    final double totalSeconds = accelSeconds + cruiseSeconds + decelSeconds;
+
+    final double t1 = accelSeconds / totalSeconds;
+    final double t2 = (accelSeconds + cruiseSeconds) / totalSeconds;
+
+    return _SpinPlan(
+      targetIndex: pickedIndex,
+      landingOffset: landingOffset,
+      startRotation: startAngle,
+      endRotation: startAngle + totalAngle,
+      duration: Duration(milliseconds: (totalSeconds * 1000).round()),
+      t1: t1,
+      t2: t2,
+    );
+  }
+
+  double _deltaToTarget(double startAngle, double targetAngle) {
+    final double tau = 2 * pi;
+    double delta = (targetAngle - startAngle) % tau;
+    if (delta <= 0) {
+      delta += tau;
+    }
+    return delta;
   }
 
   void _finishSpin() {
@@ -152,11 +180,11 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       case SectorType.bonus:
       case SectorType.mystery:
       case SectorType.prize:
-        return 0.6;
+        return 0.2;
       case SectorType.bankrupt:
-        return 1.4;
+        return 0.4;
       case SectorType.doubleScore:
-        return 0.9;
+        return 0.5;
       case SectorType.miss:
         return 0.8;
     }
@@ -206,16 +234,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       offset = (_random.nextDouble() - 0.5) * _segmentAngle * 0.4;
     } while (offset.abs() < _segmentAngle * 0.05);
     return offset;
-  }
-
-  void _configureTimings() {
-    const double accelSeconds = 1.5;
-    final double cruiseSeconds = 0.8 + _random.nextDouble() * 2.0;
-    final double decelSeconds = 0.4 + _random.nextDouble() * 1.0;
-    final double total = accelSeconds + cruiseSeconds + decelSeconds;
-    _t1 = accelSeconds / total;
-    _t2 = (accelSeconds + cruiseSeconds) / total;
-    _controller.duration = Duration(milliseconds: (total * 1000).round());
   }
 
   double _normalizeAngle(double angle) {
@@ -288,6 +306,26 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       ),
     );
   }
+}
+
+class _SpinPlan {
+  const _SpinPlan({
+    required this.targetIndex,
+    required this.landingOffset,
+    required this.startRotation,
+    required this.endRotation,
+    required this.duration,
+    required this.t1,
+    required this.t2,
+  });
+
+  final int targetIndex;
+  final double landingOffset;
+  final double startRotation;
+  final double endRotation;
+  final Duration duration;
+  final double t1;
+  final double t2;
 }
 
 class _WheelBasePainter extends CustomPainter {
