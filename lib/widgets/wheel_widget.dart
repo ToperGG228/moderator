@@ -43,6 +43,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   double get _pointerSize => widget.size * 0.22;
 
+  double get _baseRotation => -pi / 2 - _segmentAngle / 2;
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +52,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     _targetIndex = _currentIndex;
     _currentOffset = 0;
     _landingOffset = 0;
-    _rotation = -_currentIndex * _segmentAngle + _currentOffset;
+    _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
     _startRotation = _rotation;
     _targetRotation = _rotation;
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 6200))
@@ -76,7 +78,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       _targetIndex = _currentIndex;
       _currentOffset = 0;
       _landingOffset = 0;
-      _rotation = -_currentIndex * _segmentAngle + _currentOffset;
+      _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
       _startRotation = _rotation;
       _targetRotation = _rotation;
     }
@@ -127,7 +129,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     // Нормализуем угол, чтобы он не рос бесконечно.
     _currentOffset = _landingOffset;
-    _rotation = -_currentIndex * _segmentAngle + _currentOffset;
+    _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
     _startRotation = _rotation;
     _targetRotation = _rotation;
 
@@ -181,35 +183,35 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   double _defaultProfile(double t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    if (t < 0.18) {
-      final double normalized = t / 0.18;
-      return 0.1 * normalized * normalized;
+    if (t < 0.24) {
+      final double normalized = t / 0.24;
+      return 0.38 * Curves.easeInExpo.transform(normalized);
     }
-    if (t < 0.75) {
-      final double normalized = (t - 0.18) / 0.57;
-      return 0.1 + 0.78 * Curves.easeInCubic.transform(normalized);
+    if (t < 0.82) {
+      final double normalized = (t - 0.24) / 0.58;
+      return 0.38 + 0.48 * Curves.linear.transform(normalized);
     }
-    final double normalized = (t - 0.75) / 0.25;
-    return 0.88 + 0.12 * Curves.easeOutQuart.transform(normalized);
+    final double normalized = (t - 0.82) / 0.18;
+    return 0.86 + 0.14 * Curves.easeOutQuint.transform(normalized);
   }
 
   double _dramaticProfile(double t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    if (t < 0.18) {
-      final double normalized = t / 0.18;
-      return 0.07 * normalized * normalized;
+    if (t < 0.26) {
+      final double normalized = t / 0.26;
+      return 0.32 * Curves.easeInExpo.transform(normalized);
     }
-    if (t < 0.6) {
-      final double normalized = (t - 0.18) / 0.42;
-      return 0.07 + 0.75 * Curves.easeInExpo.transform(normalized);
+    if (t < 0.7) {
+      final double normalized = (t - 0.26) / 0.44;
+      return 0.32 + 0.42 * Curves.linear.transform(normalized);
     }
-    if (t < 0.88) {
-      final double normalized = (t - 0.6) / 0.28;
-      return 0.82 + 0.08 * Curves.easeInOutQuad.transform(normalized);
+    if (t < 0.9) {
+      final double normalized = (t - 0.7) / 0.2;
+      return 0.74 + 0.18 * Curves.easeOutCubic.transform(normalized);
     }
-    final double normalized = (t - 0.88) / 0.12;
-    return 0.9 + 0.1 * Curves.easeOutQuint.transform(normalized);
+    final double normalized = (t - 0.9) / 0.1;
+    return 0.92 + 0.08 * Curves.easeOutExpo.transform(normalized);
   }
 
   bool _shouldDramatize(int targetIndex) {
@@ -233,8 +235,12 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   double _randomLandingOffset() {
     // Лёгкое смещение, чтобы стрелка не оказывалась точно на границе.
-    final double span = _dramaticNeighbor ? 0.35 : 0.6;
-    return (_random.nextDouble() - 0.5) * _segmentAngle * span;
+    final double span = _dramaticNeighbor ? 0.32 : 0.55;
+    double value;
+    do {
+      value = (_random.nextDouble() - 0.5) * _segmentAngle * span;
+    } while (value.abs() < _segmentAngle * 0.12);
+    return value;
   }
 
   @override
@@ -247,14 +253,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: <Widget>[
-          Positioned(
-            top: 0,
-            child: Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
-              child: _WheelPointer(size: _pointerSize),
-            ),
-          ),
           Positioned(
             top: pointerOffset,
             child: DecoratedBox(
@@ -281,6 +279,14 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
                   ),
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+              child: _WheelPointer(size: _pointerSize),
             ),
           ),
         ],
@@ -328,26 +334,47 @@ class _WheelPainter extends CustomPainter {
 
       // Рисуем подписи секторов.
       final TextPainter textPainter = TextPainter(
-          text: TextSpan(
-            text: sector.label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
+        text: TextSpan(
+          text: sector.label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+            shadows: <Shadow>[
+              Shadow(offset: Offset(0, 1), blurRadius: 3, color: Colors.black54),
+            ],
           ),
-          textDirection: TextDirection.ltr,
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
       )..layout();
       final double angle = startAngle + segmentAngle / 2;
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(angle);
-      canvas.translate(0, -radius * 0.9);
-      textPainter.paint(
-        canvas,
-        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      canvas.translate(0, -radius * 0.93);
+      final Offset textOffset = Offset(-textPainter.width / 2, -textPainter.height / 2);
+      final RRect bubble = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          textOffset.dx - 6,
+          textOffset.dy - 4,
+          textPainter.width + 12,
+          textPainter.height + 8,
+        ),
+        const Radius.circular(6),
       );
+      final Paint bubblePaint = Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            Colors.black.withOpacity(0.65),
+            Colors.indigo.withOpacity(0.35),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(bubble.outerRect);
+      canvas.drawRRect(bubble, bubblePaint);
+      textPainter.paint(canvas, textOffset);
       canvas.restore();
     }
 
@@ -399,7 +426,14 @@ class _WheelPointer extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        gradient: LinearGradient(
+          colors: <Color>[
+            Colors.amberAccent.withOpacity(0.32),
+            Colors.deepOrangeAccent.withOpacity(0.12),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.amberAccent.withOpacity(0.6),
