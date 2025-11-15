@@ -618,57 +618,63 @@ class _GameScreenState extends State<GameScreen> {
               ),
             );
           },
-          child: Container(
-            key: ValueKey<String>(question.question),
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withOpacity(0.15)),
-              gradient: LinearGradient(
-                colors: <Color>[
-                  Colors.white.withOpacity(0.1),
-                  Colors.white.withOpacity(0.03),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.indigo.withOpacity(0.35),
-                  blurRadius: 22,
-                  spreadRadius: 2,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 820),
+              child: Container(
+                key: ValueKey<String>(question.question),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withOpacity(0.15)),
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      Colors.white.withOpacity(0.1),
+                      Colors.white.withOpacity(0.03),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.indigo.withOpacity(0.35),
+                      blurRadius: 22,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Text(
-              question.question,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
+                child: Text(
+                  question.question,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
           ),
         ),
         const SizedBox(height: 24),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 14,
-          runSpacing: 16,
-          children: List<Widget>.generate(chars.length, (int index) {
-            final String char = chars[index];
-            if (char == ' ') {
-              return const SizedBox(width: 32, height: 80);
-            }
-            final bool isRevealed = revealed[index];
-            return _AnswerTile(
-              character: char,
-              revealed: isRevealed,
-              index: index,
-            );
-          }),
+        Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 14,
+            runSpacing: 16,
+            children: List<Widget>.generate(chars.length, (int index) {
+              final String char = chars[index];
+              if (char == ' ') {
+                return const SizedBox(width: 32, height: 80);
+              }
+              final bool isRevealed = revealed[index];
+              return _AnswerTile(
+                character: char,
+                revealed: isRevealed,
+                index: index,
+              );
+            }),
+          ),
         ),
       ],
     );
@@ -692,14 +698,17 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
-          child: WheelWidget(
-            key: _wheelKey,
-            sectors: _sectors,
-            initialIndex: _initialWheelIndex,
-            onSpinComplete: (WheelSector sector) {
-              _onSectorComplete(sector);
-            },
-            size: wheelSize,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: WheelWidget(
+              key: _wheelKey,
+              sectors: _sectors,
+              initialIndex: _initialWheelIndex,
+              onSpinComplete: (WheelSector sector) {
+                _onSectorComplete(sector);
+              },
+              size: wheelSize,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -752,54 +761,66 @@ class _GameScreenState extends State<GameScreen> {
     required bool isWide,
     required double maxWidth,
   }) {
-    final double wheelSize = isWide
-        ? (maxWidth * 0.45).clamp(520, 720)
-        : 420;
-    final Widget wheelColumn = SizedBox(
-      width: wheelSize,
-      child: _buildWheelSection(wheelSize: wheelSize),
+    final double baseDiameter = maxWidth * (isWide ? 0.45 : 0.78);
+    final double minDiameter = isWide ? 560 : 300;
+    final double maxDiameter = isWide ? 760 : maxWidth - 176;
+    final double safeMaxDiameter = max(minDiameter, maxDiameter);
+    double targetWheelDiameter = baseDiameter;
+    if (targetWheelDiameter < minDiameter) {
+      targetWheelDiameter = minDiameter;
+    } else if (targetWheelDiameter > safeMaxDiameter) {
+      targetWheelDiameter = safeMaxDiameter;
+    }
+    final double wheelColumnWidth = targetWheelDiameter + 176;
+
+    Widget buildWheelBox() {
+      return SizedBox(
+        width: wheelColumnWidth,
+        child: _buildWheelSection(wheelSize: targetWheelDiameter),
+      );
+    }
+
+    final Widget wideWheel = Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: buildWheelBox(),
+      ),
     );
-    final Widget wheel = isWide
-        ? Align(
-            alignment: Alignment.topLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 60),
-              child: wheelColumn,
-            ),
-          )
-        : Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: wheelColumn),
-          );
 
     if (!isWide) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          wheel,
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: wheelColumnWidth),
+                child: buildWheelBox(),
+              ),
+            ),
+          ),
           const SizedBox(height: 32),
           _buildTeamColumn(),
         ],
       );
     }
 
+    final Widget teams = SizedBox(
+      width: 270,
+      child: _buildTeamColumn(),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Flexible(
-            flex: 3,
-            child: wheel,
-          ),
+          Expanded(flex: 5, child: wideWheel),
           const SizedBox(width: 36),
-          Padding(
-            padding: const EdgeInsets.only(top: 26),
-            child: SizedBox(
-              width: 270,
-              child: _buildTeamColumn(),
-            ),
-          ),
+          teams,
         ],
       ),
     );
@@ -818,7 +839,7 @@ class _GameScreenState extends State<GameScreen> {
                 final bool isWide = constraints.maxWidth >= 1100;
                 final Widget keyboard = Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 640),
+                    constraints: const BoxConstraints(maxWidth: 520),
                     child: LetterKeyboard(
                       letters: _letters,
                       disabledLetters: _engine.usedLetters,
@@ -834,11 +855,11 @@ class _GameScreenState extends State<GameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         _buildQuestionBlock(),
-                        const SizedBox(height: 36),
+                        const SizedBox(height: 40),
                         keyboard,
-                        const SizedBox(height: 44),
+                        const SizedBox(height: 60),
                         _buildWheelAndTeams(
                           isWide: false,
                           maxWidth: constraints.maxWidth,
@@ -851,17 +872,17 @@ class _GameScreenState extends State<GameScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    const SizedBox(height: 40),
-                    _buildQuestionBlock(),
                     const SizedBox(height: 32),
+                    _buildQuestionBlock(),
+                    const SizedBox(height: 40),
                     keyboard,
-                    const SizedBox(height: 56),
-                    Expanded(
-                      child: _buildWheelAndTeams(
-                        isWide: true,
-                        maxWidth: constraints.maxWidth,
+                    const SizedBox(height: 60),
+                      Expanded(
+                        child: _buildWheelAndTeams(
+                          isWide: true,
+                          maxWidth: constraints.maxWidth,
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
