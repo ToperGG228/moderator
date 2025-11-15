@@ -296,55 +296,203 @@ class _WheelBasePainter extends CustomPainter {
   final List<WheelSector> sectors;
   final double rotation;
 
+  static const List<Color> _palette = <Color>[
+    Color(0xFFE53935),
+    Color(0xFF1E88E5),
+    Color(0xFFFFB300),
+    Color(0xFF8E24AA),
+    Color(0xFF00897B),
+    Color(0xFFFB8C00),
+  ];
+
+  Color _lighten(Color color, [double amount = 0.18]) {
+    final HSLColor hsl = HSLColor.fromColor(color);
+    return hsl
+        .withLightness((hsl.lightness + amount).clamp(0.0, 1.0))
+        .toColor();
+  }
+
+  Color _darken(Color color, [double amount = 0.18]) {
+    final HSLColor hsl = HSLColor.fromColor(color);
+    return hsl
+        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+        .toColor();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final double segmentAngle = 2 * pi / sectors.length;
     final Offset center = size.center(Offset.zero);
     final double radius = min(size.width, size.height) / 2;
 
-    final Rect rect = Rect.fromCircle(center: center, radius: radius);
+    final double outerRim = radius;
+    final double innerRim = radius * 0.94;
+    final double wheelRadius = radius * 0.9;
+
+    // Наружный металлический обод.
+    final Paint rimPaint = Paint()
+      ..shader = RadialGradient(
+        colors: <Color>[
+          const Color(0xFFfdd835),
+          const Color(0xFFc6a700),
+          const Color(0xFF795548),
+        ],
+        stops: const <double>[0.25, 0.72, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: outerRim));
+    canvas.drawCircle(center, outerRim, rimPaint);
+
+    final Paint rimBorder = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.025;
+    canvas.drawCircle(center, outerRim, rimBorder);
+
+    final Paint innerRimPaint = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          Colors.black.withOpacity(0.4),
+          Colors.black.withOpacity(0.1),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(
+        Rect.fromCircle(center: center, radius: innerRim),
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.06;
+    canvas.drawCircle(center, innerRim, innerRimPaint);
+
+    final Rect wheelRect =
+        Rect.fromCircle(center: center, radius: wheelRadius + radius * 0.08);
+    final Rect wedgeRect = Rect.fromCircle(center: center, radius: wheelRadius);
 
     for (int i = 0; i < sectors.length; i++) {
       final WheelSector sector = sectors[i];
-      final Color baseColor = sector.color ?? const Color(0xFF283593);
-      final Paint paint = Paint()
-        ..shader = LinearGradient(
-          colors: <Color>[
-            baseColor.withOpacity(0.95),
-            Color.alphaBlend(Colors.black.withOpacity(0.25), baseColor),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(rect)
-        ..style = PaintingStyle.fill;
-      final double startAngle = rotation + i * segmentAngle;
-      canvas.drawArc(rect, startAngle, segmentAngle, true, paint);
+      final Color baseColor =
+          sector.color ?? _palette[i % _palette.length];
+      final Color light = _lighten(baseColor, 0.22);
+      final Color dark = _darken(baseColor, 0.16);
 
-      // Добавляем тонкую границу между секторами.
-      final Paint borderPaint = Paint()
-        ..color = Colors.black.withOpacity(0.3)
+      final double startAngle = rotation + i * segmentAngle;
+      final Path segmentPath = Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(wedgeRect, startAngle, segmentAngle, false)
+        ..close();
+
+      final Paint segmentPaint = Paint()
+        ..shader = SweepGradient(
+          startAngle: startAngle,
+          endAngle: startAngle + segmentAngle,
+          colors: <Color>[light, baseColor, dark],
+          stops: const <double>[0.1, 0.55, 1.0],
+        ).createShader(wheelRect);
+      canvas.drawPath(segmentPath, segmentPaint);
+
+      // Подсветка по краю сектора.
+      final Paint highlightPaint = Paint()
+        ..shader = RadialGradient(
+          colors: <Color>[
+            Colors.white.withOpacity(0.22),
+            Colors.transparent,
+          ],
+          stops: const <double>[0.0, 1.0],
+        ).createShader(
+          Rect.fromCircle(center: center, radius: wheelRadius * 0.98),
+        );
+      canvas.drawPath(segmentPath, highlightPaint);
+
+      final Paint dividerPaint = Paint()
+        ..color = Colors.black.withOpacity(0.42)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawArc(rect, startAngle, segmentAngle, true, borderPaint);
+        ..strokeWidth = radius * 0.015
+        ..strokeCap = StrokeCap.round;
+      final Path dividerPath = Path()
+        ..addArc(wedgeRect, startAngle, segmentAngle);
+      canvas.drawPath(dividerPath, dividerPaint);
+
+      final Paint spokePaint = Paint()
+        ..color = Colors.black.withOpacity(0.32)
+        ..strokeWidth = radius * 0.014
+        ..strokeCap = StrokeCap.round;
+      final Offset startPoint = Offset(
+        center.dx + wheelRadius * cos(startAngle),
+        center.dy + wheelRadius * sin(startAngle),
+      );
+      canvas.drawLine(center, startPoint, spokePaint);
     }
 
-    // Центральный круг.
-    final Paint centerPaint = Paint()
+    // Декоративные болты по краю, создающие ощущение реального барабана.
+    final RadialGradient studGradient = RadialGradient(
+      colors: <Color>[
+        Colors.white.withOpacity(0.9),
+        Colors.amber.withOpacity(0.6),
+        Colors.brown.withOpacity(0.4),
+      ],
+      stops: const <double>[0.0, 0.45, 1.0],
+    );
+    final Paint studBorder = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = radius * 0.005;
+
+    final int studCount = sectors.length * 2;
+    for (int i = 0; i < studCount; i++) {
+      final double angle = rotation + i * 2 * pi / studCount;
+      final Offset studCenter = Offset(
+        center.dx + innerRim * cos(angle),
+        center.dy + innerRim * sin(angle),
+      );
+      canvas.save();
+      canvas.translate(studCenter.dx, studCenter.dy);
+      final Paint studFill = Paint()
+        ..shader = studGradient.createShader(
+          Rect.fromCircle(center: Offset.zero, radius: radius * 0.03),
+        );
+      canvas.drawCircle(Offset.zero, radius * 0.03, studFill);
+      canvas.drawCircle(Offset.zero, radius * 0.03, studBorder);
+      canvas.restore();
+    }
+
+    // Внутренний диск.
+    final double hubRadius = wheelRadius * 0.42;
+    final Paint hubPaint = Paint()
       ..shader = RadialGradient(
         colors: <Color>[
-          Colors.white.withOpacity(0.95),
-          Colors.blueGrey.withOpacity(0.25),
+          const Color(0xFF263238),
+          const Color(0xFF102027),
         ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.24))
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.2, centerPaint);
+        stops: const <double>[0.2, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: hubRadius));
+    canvas.drawCircle(center, hubRadius, hubPaint);
+
+    final Paint hubRidge = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          Colors.white.withOpacity(0.35),
+          Colors.white.withOpacity(0.05),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(
+        Rect.fromCircle(center: center, radius: hubRadius * 0.82),
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = hubRadius * 0.15;
+    canvas.drawCircle(center, hubRadius * 0.72, hubRidge);
+
+    final Paint hubBorder = Paint()
+      ..color = Colors.black.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = hubRadius * 0.08;
+    canvas.drawCircle(center, hubRadius, hubBorder);
 
     final TextPainter centerText = TextPainter(
       text: const TextSpan(
         text: 'ПОЛЕ\nЧУДЕС',
         style: TextStyle(
-          color: Colors.black87,
+          color: Colors.white,
           fontSize: 18,
+          letterSpacing: 2.0,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -383,54 +531,58 @@ class _WheelLabelPainter extends CustomPainter {
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(angle);
-      canvas.translate(0, -radius * 0.935);
+      canvas.translate(0, -radius * 0.86);
 
       final TextPainter textPainter = TextPainter(
         text: TextSpan(
           text: sector.label,
           style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
+            color: Colors.white,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
-            letterSpacing: 0.7,
+            letterSpacing: 1.2,
             shadows: <Shadow>[
-              Shadow(color: Colors.white70, blurRadius: 12),
+              Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
             ],
           ),
         ),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
+        maxLines: 1,
       )..layout();
 
-      final Offset textOffset = Offset(-textPainter.width / 2, -textPainter.height / 2);
-      final RRect bubble = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          textOffset.dx - 7,
-          textOffset.dy - 5,
-          textPainter.width + 14,
-          textPainter.height + 10,
+      final double width = textPainter.width + 18;
+      final double height = textPainter.height + 12;
+      final RRect badge = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(0, 0),
+          width: width,
+          height: height,
         ),
-        const Radius.circular(7),
+        const Radius.circular(10),
       );
 
-      final Paint bubblePaint = Paint()
+      final Paint badgePaint = Paint()
         ..shader = LinearGradient(
           colors: <Color>[
-            Colors.white.withOpacity(0.95),
-            Colors.blue.shade100.withOpacity(0.55),
+            Colors.black.withOpacity(0.85),
+            Colors.black.withOpacity(0.55),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-        ).createShader(bubble.outerRect);
-      canvas.drawRRect(bubble, bubblePaint);
+        ).createShader(badge.outerRect);
+      canvas.drawRRect(badge, badgePaint);
 
-      final Paint bubbleBorder = Paint()
-        ..color = Colors.white.withOpacity(0.9)
+      final Paint badgeBorder = Paint()
+        ..color = Colors.white.withOpacity(0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2;
-      canvas.drawRRect(bubble, bubbleBorder);
+        ..strokeWidth = 1.4;
+      canvas.drawRRect(badge, badgeBorder);
 
-      textPainter.paint(canvas, textOffset);
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
       canvas.restore();
     }
   }
