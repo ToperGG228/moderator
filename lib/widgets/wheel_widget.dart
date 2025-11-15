@@ -32,7 +32,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   double _rotation = 0;
   double _startRotation = 0;
   double _endRotation = 0;
-  double _landingOffset = 0;
   double _t1 = 0.3;
   double _t2 = 0.75;
   int _currentIndex = 0;
@@ -51,8 +50,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     super.initState();
     _currentIndex = widget.initialIndex % widget.sectors.length;
     _targetIndex = _currentIndex;
-    _landingOffset = 0;
-    _rotation = _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
+    _rotation = _angleForIndex(_currentIndex);
     _startRotation = _rotation;
     _endRotation = _rotation;
     _controller = AnimationController(
@@ -79,8 +77,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
       _currentIndex = widget.initialIndex % widget.sectors.length;
       _targetIndex = _currentIndex;
-      _landingOffset = 0;
-      _rotation = _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
+      _rotation = _angleForIndex(_currentIndex);
       _startRotation = _rotation;
       _endRotation = _rotation;
     }
@@ -102,7 +99,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     _spinning = true;
     _targetIndex = plan.targetIndex;
-    _landingOffset = plan.landingOffset;
     _startRotation = plan.startRotation;
     _endRotation = plan.endRotation;
     _t1 = plan.t1;
@@ -117,15 +113,18 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   _SpinPlan _createSpinPlan() {
     final int pickedIndex = _pickWeightedSectorIndex();
-    final double landingOffset = _randomLandingOffset();
-    final double targetAngle =
-        _normalizeAngle(_angleForIndex(pickedIndex, landingOffset));
+    final double offset = _randomLandingOffset();
     final double startAngle = _rotation;
+    final double targetAngle = _angleForIndex(pickedIndex) + offset;
     final int fullTurns = 4 + _random.nextInt(3);
-    final double delta = _deltaToTarget(startAngle, targetAngle);
+
+    double delta = targetAngle - startAngle;
+    while (delta <= 0) {
+      delta += 2 * pi;
+    }
     final double totalAngle = fullTurns * 2 * pi + delta;
 
-    final double accelSeconds = 1.5;
+    const double accelSeconds = 1.5;
     final double cruiseSeconds = 0.8 + _random.nextDouble() * 2.0;
     final double decelSeconds = 0.4 + _random.nextDouble() * 1.0;
     final double totalSeconds = accelSeconds + cruiseSeconds + decelSeconds;
@@ -135,7 +134,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     return _SpinPlan(
       targetIndex: pickedIndex,
-      landingOffset: landingOffset,
       startRotation: startAngle,
       endRotation: startAngle + totalAngle,
       duration: Duration(milliseconds: (totalSeconds * 1000).round()),
@@ -144,19 +142,9 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     );
   }
 
-  double _deltaToTarget(double startAngle, double targetAngle) {
-    final double tau = 2 * pi;
-    double delta = (targetAngle - startAngle) % tau;
-    if (delta <= 0) {
-      delta += tau;
-    }
-    return delta;
-  }
-
   void _finishSpin() {
     _currentIndex = _targetIndex % widget.sectors.length;
-    _rotation =
-        _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
+    _rotation = _endRotation;
     _startRotation = _rotation;
     _endRotation = _rotation;
 
@@ -209,44 +197,27 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     if (t <= 0) return 0;
     if (t >= 1) return 1;
 
-    const double accelProgress = 0.3;
-    const double cruiseProgress = 0.85;
-
     if (t < _t1) {
-      final double normalized = (t / _t1).clamp(0.0, 1.0);
-      return accelProgress * Curves.easeInQuad.transform(normalized);
+      final double x = (t / _t1).clamp(0.0, 1.0);
+      return 0.5 * x * x;
     }
 
     if (t < _t2) {
-      final double normalized = ((t - _t1) / (_t2 - _t1)).clamp(0.0, 1.0);
-      return accelProgress +
-          (cruiseProgress - accelProgress) * Curves.linear.transform(normalized);
+      final double x = ((t - _t1) / (_t2 - _t1)).clamp(0.0, 1.0);
+      return 0.5 + 0.3 * x;
     }
 
-    final double normalized = ((t - _t2) / (1 - _t2)).clamp(0.0, 1.0);
-    return cruiseProgress +
-        (1 - cruiseProgress) * Curves.easeOutCubic.transform(normalized);
+    final double x = ((t - _t2) / (1 - _t2)).clamp(0.0, 1.0);
+    final double eased = x * (2 - x);
+    return 0.8 + 0.2 * eased;
   }
 
   double _randomLandingOffset() {
-    double offset;
-    do {
-      offset = (_random.nextDouble() - 0.5) * _segmentAngle * 0.4;
-    } while (offset.abs() < _segmentAngle * 0.05);
-    return offset;
+    return (_random.nextDouble() * 0.4 - 0.2) * _segmentAngle;
   }
 
-  double _normalizeAngle(double angle) {
-    final double tau = 2 * pi;
-    double value = angle % tau;
-    if (value < 0) {
-      value += tau;
-    }
-    return value;
-  }
-
-  double _angleForIndex(int index, double offset) {
-    return _baseRotation - index * _segmentAngle + offset;
+  double _angleForIndex(int index) {
+    return _baseRotation - index * _segmentAngle;
   }
 
   @override
@@ -311,7 +282,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 class _SpinPlan {
   const _SpinPlan({
     required this.targetIndex,
-    required this.landingOffset,
     required this.startRotation,
     required this.endRotation,
     required this.duration,
@@ -320,7 +290,6 @@ class _SpinPlan {
   });
 
   final int targetIndex;
-  final double landingOffset;
   final double startRotation;
   final double endRotation;
   final Duration duration;
