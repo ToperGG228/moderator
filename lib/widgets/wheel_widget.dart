@@ -32,9 +32,12 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   double _rotation = 0;
   double _startRotation = 0;
   double _targetRotation = 0;
+  double _currentOffset = 0;
+  double _landingOffset = 0;
   int _currentIndex = 0;
   int _targetIndex = 0;
   bool _spinning = false;
+  bool _dramaticNeighbor = false;
 
   double get _segmentAngle => 2 * pi / widget.sectors.length;
 
@@ -45,13 +48,15 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     super.initState();
     _currentIndex = widget.initialIndex % widget.sectors.length;
     _targetIndex = _currentIndex;
-    _rotation = -_currentIndex * _segmentAngle;
+    _currentOffset = 0;
+    _landingOffset = 0;
+    _rotation = -_currentIndex * _segmentAngle + _currentOffset;
     _startRotation = _rotation;
     _targetRotation = _rotation;
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 4500))
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 6200))
       ..addListener(() {
-        // Преобразуем прогресс контроллера через плавную кривую.
-        final double curvedValue = Curves.easeOutCubic.transform(_controller.value);
+        // Преобразуем прогресс контроллера через драматичный профиль скорости.
+        final double curvedValue = _computeSpinProgress(_controller.value);
         setState(() {
           _rotation = lerpDouble(_startRotation, _targetRotation, curvedValue)!;
         });
@@ -69,7 +74,9 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
       _currentIndex = widget.initialIndex % widget.sectors.length;
       _targetIndex = _currentIndex;
-      _rotation = -_currentIndex * _segmentAngle;
+      _currentOffset = 0;
+      _landingOffset = 0;
+      _rotation = -_currentIndex * _segmentAngle + _currentOffset;
       _startRotation = _rotation;
       _targetRotation = _rotation;
     }
@@ -93,8 +100,12 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     if (extra <= 0) {
       extra += widget.sectors.length;
     }
-    final int fullTurns = 4 + _random.nextInt(3); // 4–6 полных оборотов.
-    final double totalAngle = fullTurns * 2 * pi + extra * _segmentAngle;
+    final int fullTurns = 5 + _random.nextInt(3); // 5–7 полных оборотов.
+
+    _dramaticNeighbor = _shouldDramatize(targetIndex);
+    _landingOffset = _randomLandingOffset();
+    final double deltaOffset = _landingOffset - _currentOffset;
+    final double totalAngle = fullTurns * 2 * pi + extra * _segmentAngle + deltaOffset;
 
     _targetIndex = targetIndex;
     _startRotation = _rotation;
@@ -115,11 +126,13 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     _currentIndex = _targetIndex % widget.sectors.length;
 
     // Нормализуем угол, чтобы он не рос бесконечно.
-    _rotation = -_currentIndex * _segmentAngle;
+    _currentOffset = _landingOffset;
+    _rotation = -_currentIndex * _segmentAngle + _currentOffset;
     _startRotation = _rotation;
     _targetRotation = _rotation;
 
     _spinning = false;
+    _dramaticNeighbor = false;
     final WheelSector sector = widget.sectors[_currentIndex];
     widget.onSpinComplete?.call(sector);
     setState(() {});
@@ -146,18 +159,82 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       case SectorType.points:
         return 1.0;
       case SectorType.bonus:
-        return 0.6;
+        return 0.45;
       case SectorType.mystery:
-        return 0.6;
+        return 0.45;
       case SectorType.prize:
-        return 0.6;
+        return 0.45;
       case SectorType.bankrupt:
-        return 1.45;
+        return 1.5;
       case SectorType.doubleScore:
         return 0.7;
       case SectorType.miss:
-        return 0.6;
+        return 0.9;
     }
+  }
+
+  double _computeSpinProgress(double t) {
+    final double value = _dramaticNeighbor ? _dramaticProfile(t) : _defaultProfile(t);
+    return value.clamp(0.0, 1.0);
+  }
+
+  double _defaultProfile(double t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    if (t < 0.18) {
+      final double normalized = t / 0.18;
+      return 0.1 * normalized * normalized;
+    }
+    if (t < 0.75) {
+      final double normalized = (t - 0.18) / 0.57;
+      return 0.1 + 0.78 * Curves.easeInCubic.transform(normalized);
+    }
+    final double normalized = (t - 0.75) / 0.25;
+    return 0.88 + 0.12 * Curves.easeOutQuart.transform(normalized);
+  }
+
+  double _dramaticProfile(double t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    if (t < 0.18) {
+      final double normalized = t / 0.18;
+      return 0.07 * normalized * normalized;
+    }
+    if (t < 0.6) {
+      final double normalized = (t - 0.18) / 0.42;
+      return 0.07 + 0.75 * Curves.easeInExpo.transform(normalized);
+    }
+    if (t < 0.88) {
+      final double normalized = (t - 0.6) / 0.28;
+      return 0.82 + 0.08 * Curves.easeInOutQuad.transform(normalized);
+    }
+    final double normalized = (t - 0.88) / 0.12;
+    return 0.9 + 0.1 * Curves.easeOutQuint.transform(normalized);
+  }
+
+  bool _shouldDramatize(int targetIndex) {
+    bool isSpecial(int index) {
+      final SectorType type = widget.sectors[index].type;
+      return type == SectorType.bonus ||
+          type == SectorType.mystery ||
+          type == SectorType.prize ||
+          type == SectorType.bankrupt;
+    }
+
+    if (isSpecial(targetIndex)) {
+      return false;
+    }
+
+    final int length = widget.sectors.length;
+    final int prev = (targetIndex - 1 + length) % length;
+    final int next = (targetIndex + 1) % length;
+    return isSpecial(prev) || isSpecial(next);
+  }
+
+  double _randomLandingOffset() {
+    // Лёгкое смещение, чтобы стрелка не оказывалась точно на границе.
+    final double span = _dramaticNeighbor ? 0.35 : 0.6;
+    return (_random.nextDouble() - 0.5) * _segmentAngle * span;
   }
 
   @override
@@ -172,7 +249,11 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
         children: <Widget>[
           Positioned(
             top: 0,
-            child: _WheelPointer(size: _pointerSize),
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
+              child: _WheelPointer(size: _pointerSize),
+            ),
           ),
           Positioned(
             top: pointerOffset,
@@ -251,8 +332,9 @@ class _WheelPainter extends CustomPainter {
             text: sector.label,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
             ),
           ),
           textDirection: TextDirection.ltr,
@@ -261,7 +343,7 @@ class _WheelPainter extends CustomPainter {
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(angle);
-      canvas.translate(0, -radius * 0.78);
+      canvas.translate(0, -radius * 0.9);
       textPainter.paint(
         canvas,
         Offset(-textPainter.width / 2, -textPainter.height / 2),
@@ -336,34 +418,57 @@ class _WheelPointer extends StatelessWidget {
 class _PointerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..shader = LinearGradient(
-        colors: <Color>[
-          Colors.amberAccent.shade200,
-          Colors.orangeAccent.shade200,
-        ],
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
     final Path path = Path()
       ..moveTo(size.width / 2, size.height)
-      ..lineTo(size.width, size.height * 0.25)
+      ..lineTo(size.width, size.height * 0.28)
       ..quadraticBezierTo(
         size.width / 2,
         0,
         0,
-        size.height * 0.25,
+        size.height * 0.28,
       )
       ..close();
 
+    canvas.drawShadow(path, Colors.amberAccent.withOpacity(0.9), 14, true);
+
+    final Paint paint = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          Colors.amberAccent.shade100,
+          Colors.deepOrangeAccent.shade200,
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawPath(path, paint);
 
     final Paint borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.85)
+      ..shader = LinearGradient(
+        colors: <Color>[
+          Colors.white.withOpacity(0.95),
+          Colors.amber.shade200,
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.2;
     canvas.drawPath(path, borderPaint);
+
+    final Paint innerHighlight = Paint()
+      ..color = Colors.white.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final Path innerPath = Path()
+      ..moveTo(size.width / 2, size.height * 0.92)
+      ..lineTo(size.width * 0.82, size.height * 0.34)
+      ..quadraticBezierTo(
+        size.width / 2,
+        size.height * 0.08,
+        size.width * 0.18,
+        size.height * 0.34,
+      );
+    canvas.drawPath(innerPath, innerHighlight);
   }
 
   @override
