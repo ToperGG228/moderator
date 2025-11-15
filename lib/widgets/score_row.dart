@@ -14,9 +14,9 @@ class ScoreRow extends StatelessWidget {
   final int activeIndex;
 
   static const List<Color> _cardColors = <Color>[
-    Color(0xFFFBC02D),
-    Color(0xFF1976D2),
-    Color(0xFF2E7D32),
+    Color(0xFFFFC53D),
+    Color(0xFF3A7BFF),
+    Color(0xFF24C28C),
   ];
 
   @override
@@ -25,50 +25,82 @@ class ScoreRow extends StatelessWidget {
       children: List<Widget>.generate(teamNames.length, (int index) {
         final bool isActive = index == activeIndex;
         final Color baseColor = _cardColors[index % _cardColors.length];
-        final Color background = isActive ? baseColor : baseColor.withOpacity(0.65);
-        final BoxShadow shadow = BoxShadow(
-          color: isActive ? Colors.yellowAccent.withOpacity(0.6) : Colors.black26,
-          blurRadius: isActive ? 16 : 6,
-          spreadRadius: isActive ? 2 : 0,
-          offset: const Offset(0, 6),
-        );
+        final List<Color> gradientColors = <Color>[
+          baseColor.withOpacity(isActive ? 0.95 : 0.75),
+          Color.alphaBlend(Colors.black.withOpacity(0.2), baseColor),
+        ];
         return Expanded(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: <BoxShadow>[shadow],
-              border: Border.all(
-                color: isActive ? Colors.white : Colors.white24,
-                width: isActive ? 3 : 1.5,
+          child: AnimatedScale(
+            scale: isActive ? 1.05 : 1.0,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutBack,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isActive ? Colors.white : Colors.white30,
+                  width: isActive ? 3 : 1.5,
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: isActive
+                        ? Colors.amberAccent.withOpacity(0.55)
+                        : Colors.black.withOpacity(0.35),
+                    blurRadius: isActive ? 26 : 12,
+                    spreadRadius: isActive ? 3 : 1,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  teamNames[index],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      AnimatedOpacity(
+                        opacity: isActive ? 1 : 0,
+                        duration: const Duration(milliseconds: 400),
+                        child: Icon(
+                          Icons.star_rounded,
+                          color: Colors.white.withOpacity(0.9),
+                          size: 24,
+                        ),
+                      ),
+                      if (isActive) const SizedBox(width: 6),
+                      Text(
+                        teamNames[index],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  scores[index].toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 10),
+                  Text(
+                    scores[index].toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.3,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

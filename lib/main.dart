@@ -33,12 +33,22 @@ class PoleChudesApp extends StatelessWidget {
       title: 'Поле чудес',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        useMaterial3: true,
         fontFamily: 'Roboto',
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF061A40),
+        scaffoldBackgroundColor: Colors.transparent,
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: Color(0xFF1D2750),
+          contentTextStyle: TextStyle(fontWeight: FontWeight.w600),
+          behavior: SnackBarBehavior.floating,
+        ),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF1E88E5),
-          secondary: Color(0xFFFFC107),
+          primary: Color(0xFF4777FF),
+          secondary: Color(0xFFFFC857),
+          background: Colors.transparent,
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(letterSpacing: 0.4),
         ),
       ),
       home: const GameLoader(),
@@ -56,16 +66,22 @@ class GameLoader extends StatelessWidget {
       builder: (BuildContext context, AsyncSnapshot<List<GameQuestion>> snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
+            backgroundColor: Colors.transparent,
+            body: _GameBackground(
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
           );
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Scaffold(
-            body: Center(
-              child: Text('Не удалось загрузить вопросы.'),
+            backgroundColor: Colors.transparent,
+            body: _GameBackground(
+              child: Center(
+                child: Text('Не удалось загрузить вопросы.'),
+              ),
             ),
           );
         }
@@ -171,7 +187,6 @@ class _GameScreenState extends State<GameScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
         ),
       );
   }
@@ -213,12 +228,13 @@ class _GameScreenState extends State<GameScreen> {
         children: <Widget>[
           const Text(
             'Игра завершена!',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
-          ElevatedButton(
+          const SizedBox(height: 16),
+          _GradientButton(
+            label: 'Начать заново',
+            icon: Icons.refresh,
             onPressed: _resetGame,
-            child: const Text('Начать заново'),
           ),
         ],
       );
@@ -229,58 +245,69 @@ class _GameScreenState extends State<GameScreen> {
 
     return Column(
       children: <Widget>[
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: Text(
-            question.question,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.08),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: Container(
+            key: ValueKey<String>(question.question),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withOpacity(0.15)),
+              gradient: LinearGradient(
+                colors: <Color>[
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.03),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.indigo.withOpacity(0.35),
+                  blurRadius: 22,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Text(
+              question.question,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Wrap(
           alignment: WrapAlignment.center,
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 14,
+          runSpacing: 16,
           children: List<Widget>.generate(chars.length, (int index) {
             final String char = chars[index];
             if (char == ' ') {
-              return const SizedBox(width: 28, height: 64);
+              return const SizedBox(width: 32, height: 80);
             }
             final bool isRevealed = revealed[index];
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 48,
-              height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isRevealed ? const Color(0xFF1E88E5) : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white54, width: 2),
-                boxShadow: isRevealed
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: Colors.lightBlueAccent.withOpacity(0.6),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : const <BoxShadow>[],
-              ),
-              child: Text(
-                isRevealed ? char : '',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
+            return _AnswerTile(
+              character: char,
+              revealed: isRevealed,
+              index: index,
             );
           }),
         ),
@@ -291,50 +318,48 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildWheelSection() {
     return Column(
       children: <Widget>[
-        SizedBox(
-          height: 320,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              WheelWidget(
-                key: _wheelKey,
-                sectors: _sectors,
-                initialIndex: _initialWheelIndex,
-                onSpinComplete: _onSectorComplete,
-                size: 280,
-              ),
-              Positioned(
-                top: 6,
-                child: Icon(
-                  Icons.arrow_drop_down,
-                  size: 72,
-                  color: Colors.amberAccent.shade200,
-                ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withOpacity(0.45),
+                blurRadius: 32,
+                spreadRadius: 6,
               ),
             ],
           ),
+          child: WheelWidget(
+            key: _wheelKey,
+            sectors: _sectors,
+            initialIndex: _initialWheelIndex,
+            onSpinComplete: _onSectorComplete,
+            size: 300,
+          ),
         ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
+        const SizedBox(height: 20),
+        _GradientButton(
+          label: _isSpinning ? 'Вращаем...' : 'Крутить',
+          icon: Icons.casino,
           onPressed: (_isSpinning || _engine.isGameFinished) ? null : _handleSpin,
-          icon: const Icon(Icons.casino),
-          label: const Text(
-            'Крутить',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            backgroundColor: const Color(0xFFFFC107),
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
         ),
         if (_lastSector != null)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              'Последний сектор: ${_lastSector!.label}',
-              style: const TextStyle(fontSize: 16),
+            padding: const EdgeInsets.only(top: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Text(
+                'Последний сектор: ${_lastSector!.label}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
       ],
@@ -344,36 +369,275 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            children: <Widget>[
-              ScoreRow(
-                teamNames: _engine.teamNames,
-                scores: _engine.scores,
-                activeIndex: _engine.activeTeamIndex,
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: <Widget>[
-                      _buildQuestionBlock(),
-                      const SizedBox(height: 32),
-                      _buildWheelSection(),
-                    ],
+      backgroundColor: Colors.transparent,
+      body: _GameBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                ScoreRow(
+                  teamNames: _engine.teamNames,
+                  scores: _engine.scores,
+                  activeIndex: _engine.activeTeamIndex,
+                ),
+                const SizedBox(height: 28),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      children: <Widget>[
+                        _buildQuestionBlock(),
+                        const SizedBox(height: 36),
+                        _buildWheelSection(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              LetterKeyboard(
-                letters: _letters,
-                disabledLetters: _engine.usedLetters,
-                onLetterPressed: _onLetterPressed,
-              ),
-            ],
+                const SizedBox(height: 20),
+                LetterKeyboard(
+                  letters: _letters,
+                  disabledLetters: _engine.usedLetters,
+                  onLetterPressed: _onLetterPressed,
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnswerTile extends StatelessWidget {
+  const _AnswerTile({
+    required this.character,
+    required this.revealed,
+    required this.index,
+  });
+
+  final String character;
+  final bool revealed;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutBack,
+      width: 58,
+      height: 82,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(revealed ? 0.7 : 0.25)),
+        gradient: LinearGradient(
+          colors: <Color>[
+            Colors.white.withOpacity(revealed ? 0.18 : 0.06),
+            Colors.white.withOpacity(revealed ? 0.05 : 0.02),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        boxShadow: revealed
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: Colors.lightBlueAccent.withOpacity(0.45),
+                  blurRadius: 18,
+                  spreadRadius: 2,
+                ),
+              ]
+            : const <BoxShadow>[],
+      ),
+      child: Column(
+        children: <Widget>[
+          Expanded(
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  final Animation<double> curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutBack,
+                  );
+                  return ScaleTransition(scale: curved, child: child);
+                },
+                child: revealed
+                    ? Text(
+                        character,
+                        key: ValueKey<String>('revealed-$index'),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      )
+                    : SizedBox(
+                        key: ValueKey<String>('hidden-$index'),
+                      ),
+              ),
+            ),
+          ),
+          Container(
+            height: 3,
+            margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GradientButton extends StatelessWidget {
+  const _GradientButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDisabled = onPressed == null;
+    final Widget child = Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Icon(icon, size: 24),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
+          ),
+        ),
+      ],
+    );
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: isDisabled ? 0.55 : 1,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          onTap: isDisabled ? null : onPressed,
+          borderRadius: BorderRadius.circular(24),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: <Color>[
+                  Colors.amberAccent.shade200,
+                  Colors.orangeAccent.shade200,
+                  Colors.deepOrangeAccent.shade100,
+                ],
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.amberAccent.withOpacity(0.45),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GameBackground extends StatelessWidget {
+  const _GameBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            Color(0xFF050A2B),
+            Color(0xFF171045),
+            Color(0xFF1D0D48),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: -120,
+            left: -60,
+            child: _Spotlight(
+              radius: 260,
+              colors: <Color>[
+                Colors.deepPurpleAccent.withOpacity(0.35),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: -100,
+            right: -80,
+            child: _Spotlight(
+              radius: 300,
+              colors: <Color>[
+                Colors.blueAccent.withOpacity(0.28),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: <Color>[
+                    Colors.white.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
+                  radius: 1.2,
+                  center: const Alignment(0, -0.6),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Spotlight extends StatelessWidget {
+  const _Spotlight({required this.radius, required this.colors});
+
+  final double radius;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: radius,
+      height: radius,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: colors,
         ),
       ),
     );

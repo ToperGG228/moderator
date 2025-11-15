@@ -15,28 +15,128 @@ class LetterKeyboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: letters.map((String letter) {
-          final bool isDisabled = disabledLetters.contains(letter);
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            child: ElevatedButton(
-              onPressed: isDisabled ? null : () => onLetterPressed(letter),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDisabled ? Colors.grey.shade700 : const Color(0xFF1E88E5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double maxWidth = constraints.maxWidth;
+        final double tileSize = maxWidth < 520 ? 52 : 58;
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: letters.map((String letter) {
+            final bool isDisabled = disabledLetters.contains(letter);
+            return _LetterTile(
+              letter: letter,
+              disabled: isDisabled,
+              size: tileSize,
+              onPressed: () => onLetterPressed(letter),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _LetterTile extends StatefulWidget {
+  const _LetterTile({
+    required this.letter,
+    required this.disabled,
+    required this.onPressed,
+    required this.size,
+  });
+
+  final String letter;
+  final bool disabled;
+  final VoidCallback onPressed;
+  final double size;
+
+  @override
+  State<_LetterTile> createState() => _LetterTileState();
+}
+
+class _LetterTileState extends State<_LetterTile> {
+  bool _pressed = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    if (!widget.disabled) {
+      setState(() => _pressed = true);
+    }
+  }
+
+  void _handleTapCancel() {
+    if (!widget.disabled && _pressed) {
+      setState(() => _pressed = false);
+    }
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    if (!widget.disabled) {
+      setState(() => _pressed = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDisabled = widget.disabled;
+    final double scale = isDisabled
+        ? 1.0
+        : _pressed
+            ? 0.94
+            : 1.0;
+    final Color baseColor = isDisabled ? Colors.white12 : const Color(0xFF2B5CF6);
+    final List<Color> gradient = <Color>[
+      baseColor.withOpacity(isDisabled ? 0.35 : 0.9),
+      isDisabled ? Colors.white10 : const Color(0xFF5D8BFF),
+    ];
+    return AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 120),
+      child: Opacity(
+        opacity: isDisabled ? 0.5 : 1,
+        child: GestureDetector(
+          onTapDown: _handleTapDown,
+          onTapCancel: _handleTapCancel,
+          onTapUp: _handleTapUp,
+          onTap: isDisabled ? null : widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(
+                colors: gradient,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              child: Text(letter),
+              border: Border.all(
+                color: isDisabled ? Colors.white10 : Colors.white.withOpacity(0.8),
+                width: 1.5,
+              ),
+              boxShadow: isDisabled
+                  ? const <BoxShadow>[]
+                  : <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.blueAccent.withOpacity(0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
             ),
-          );
-        }).toList(),
+            alignment: Alignment.center,
+            child: Text(
+              widget.letter,
+              style: TextStyle(
+                fontSize: widget.size * 0.48,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

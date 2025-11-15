@@ -13,7 +13,7 @@ class WheelWidget extends StatefulWidget {
     required this.sectors,
     this.onSpinComplete,
     this.initialIndex = 0,
-    this.size = 280,
+    this.size = 300,
   });
 
   final List<WheelSector> sectors;
@@ -37,6 +37,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   bool _spinning = false;
 
   double get _segmentAngle => 2 * pi / widget.sectors.length;
+
+  double get _pointerSize => widget.size * 0.22;
 
   @override
   void initState() {
@@ -122,14 +124,47 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   @override
   Widget build(BuildContext context) {
+    final double pointerOffset = _pointerSize * 0.35;
     return SizedBox(
       width: widget.size,
-      height: widget.size,
-      child: CustomPaint(
-        painter: _WheelPainter(
-          sectors: widget.sectors,
-          rotation: _rotation,
-        ),
+      height: widget.size + pointerOffset,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            child: _WheelPointer(size: _pointerSize),
+          ),
+          Positioned(
+            top: pointerOffset,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(shape: BoxShape.circle),
+              child: Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.45),
+                      blurRadius: 28,
+                      spreadRadius: 6,
+                    ),
+                  ],
+                ),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _WheelPainter(
+                      sectors: widget.sectors,
+                      rotation: _rotation,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -151,8 +186,16 @@ class _WheelPainter extends CustomPainter {
 
     for (int i = 0; i < sectors.length; i++) {
       final WheelSector sector = sectors[i];
+      final Color baseColor = sector.color ?? const Color(0xFF283593);
       final Paint paint = Paint()
-        ..color = sector.color ?? Colors.blueGrey
+        ..shader = LinearGradient(
+          colors: <Color>[
+            baseColor.withOpacity(0.95),
+            Color.alphaBlend(Colors.black.withOpacity(0.25), baseColor),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(rect)
         ..style = PaintingStyle.fill;
       final double startAngle = rotation + i * segmentAngle;
       canvas.drawArc(rect, startAngle, segmentAngle, true, paint);
@@ -177,17 +220,25 @@ class _WheelPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       final double angle = startAngle + segmentAngle / 2;
-      final double textRadius = radius * 0.65;
-      final Offset position = Offset(
-        center.dx + cos(angle) * textRadius - textPainter.width / 2,
-        center.dy + sin(angle) * textRadius - textPainter.height / 2,
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(angle);
+      canvas.translate(0, -radius * 0.62);
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
       );
-      textPainter.paint(canvas, position);
+      canvas.restore();
     }
 
     // Центральный круг.
     final Paint centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.9)
+      ..shader = RadialGradient(
+        colors: <Color>[
+          Colors.white.withOpacity(0.95),
+          Colors.blueGrey.withOpacity(0.25),
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.24))
       ..style = PaintingStyle.fill;
     canvas.drawCircle(center, radius * 0.2, centerPaint);
 
@@ -213,4 +264,70 @@ class _WheelPainter extends CustomPainter {
   bool shouldRepaint(covariant _WheelPainter oldDelegate) {
     return oldDelegate.rotation != rotation || oldDelegate.sectors != sectors;
   }
+}
+
+class _WheelPointer extends StatelessWidget {
+  const _WheelPointer({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final double width = size * 0.6;
+    final double height = size;
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.amberAccent.withOpacity(0.6),
+            blurRadius: 18,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: CustomPaint(
+        painter: _PointerPainter(),
+      ),
+    );
+  }
+}
+
+class _PointerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..shader = LinearGradient(
+        colors: <Color>[
+          Colors.amberAccent.shade200,
+          Colors.orangeAccent.shade200,
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final Path path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height * 0.75)
+      ..quadraticBezierTo(
+        size.width / 2,
+        size.height,
+        0,
+        size.height * 0.75,
+      )
+      ..close();
+
+    canvas.drawPath(path, paint);
+
+    final Paint borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawPath(path, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
