@@ -113,13 +113,12 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   _SpinPlan _createSpinPlan() {
     final int pickedIndex = _pickWeightedSectorIndex();
-    final double normalizedStart = _normalizeAngle(_rotation);
-    _rotation = normalizedStart;
+    final double startAngle = _rotation;
     final double targetAngle =
         _angleForIndex(pickedIndex) + _randomLandingOffset();
     final int fullTurns = 4 + _random.nextInt(3);
 
-    final double delta = _positiveDelta(normalizedStart, targetAngle);
+    final double delta = _positiveDelta(startAngle, targetAngle);
     final double totalAngle = fullTurns * 2 * pi + delta;
 
     const double accelSeconds = 1.5;
@@ -132,8 +131,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     return _SpinPlan(
       targetIndex: pickedIndex,
-      startRotation: normalizedStart,
-      endRotation: normalizedStart + totalAngle,
+      startRotation: startAngle,
+      endRotation: startAngle + totalAngle,
       duration: Duration(milliseconds: (totalSeconds * 1000).round()),
       t1: t1,
       t2: t2,
@@ -142,7 +141,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   void _finishSpin() {
     _currentIndex = _targetIndex % widget.sectors.length;
-    _rotation = _normalizeAngle(_endRotation);
+    _rotation = _angleForIndex(_currentIndex);
     _startRotation = _rotation;
     _endRotation = _rotation;
 
@@ -166,11 +165,11 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
       case SectorType.bonus:
       case SectorType.mystery:
       case SectorType.prize:
-        return 0.2;
+        return 0.25;
       case SectorType.bankrupt:
-        return 0.4;
-      case SectorType.doubleScore:
         return 0.5;
+      case SectorType.doubleScore:
+        return 0.6;
       case SectorType.miss:
         return 0.8;
     }
@@ -216,18 +215,6 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   double _angleForIndex(int index) {
     return _baseRotation - index * _segmentAngle;
-  }
-
-  double _normalizeAngle(double angle) {
-    final double fullCircle = 2 * pi;
-    double normalized = angle % fullCircle;
-    if (normalized > pi) {
-      normalized -= fullCircle;
-    }
-    if (normalized <= -pi) {
-      normalized += fullCircle;
-    }
-    return normalized;
   }
 
   double _positiveDelta(double start, double target) {
