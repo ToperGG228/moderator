@@ -298,7 +298,11 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
                 ),
                 child: RepaintBoundary(
                   child: CustomPaint(
-                    painter: _WheelPainter(
+                    painter: _WheelBasePainter(
+                      sectors: widget.sectors,
+                      rotation: _rotation,
+                    ),
+                    foregroundPainter: _WheelLabelPainter(
                       sectors: widget.sectors,
                       rotation: _rotation,
                     ),
@@ -308,11 +312,13 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
             ),
           ),
           Positioned(
-            top: pointerHeadroom - _pointerSize * 0.1,
-            child: Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
-              child: _WheelPointer(size: _pointerSize),
+            top: pointerHeadroom - _pointerSize * 0.28,
+            child: IgnorePointer(
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()..scale(1.0, -1.0, 1.0),
+                child: _WheelPointer(size: _pointerSize),
+              ),
             ),
           ),
         ],
@@ -321,8 +327,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   }
 }
 
-class _WheelPainter extends CustomPainter {
-  _WheelPainter({required this.sectors, required this.rotation});
+class _WheelBasePainter extends CustomPainter {
+  _WheelBasePainter({required this.sectors, required this.rotation});
 
   final List<WheelSector> sectors;
   final double rotation;
@@ -357,53 +363,6 @@ class _WheelPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawArc(rect, startAngle, segmentAngle, true, borderPaint);
-
-      // Рисуем подписи секторов.
-      final TextPainter textPainter = TextPainter(
-        text: TextSpan(
-          text: sector.label,
-          style: const TextStyle(
-            color: Colors.black87,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-          ),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final double angle = startAngle + segmentAngle / 2;
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(angle);
-      canvas.translate(0, -radius * 0.93);
-      final Offset textOffset = Offset(-textPainter.width / 2, -textPainter.height / 2);
-      final RRect bubble = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          textOffset.dx - 6,
-          textOffset.dy - 4,
-          textPainter.width + 12,
-          textPainter.height + 8,
-        ),
-        const Radius.circular(6),
-      );
-      final Paint bubblePaint = Paint()
-        ..shader = LinearGradient(
-          colors: <Color>[
-            Colors.white.withOpacity(0.92),
-            Colors.lightBlueAccent.withOpacity(0.35),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(bubble.outerRect);
-      canvas.drawRRect(bubble, bubblePaint);
-      final Paint bubbleBorder = Paint()
-        ..color = Colors.white.withOpacity(0.75)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1;
-      canvas.drawRRect(bubble, bubbleBorder);
-      textPainter.paint(canvas, textOffset);
-      canvas.restore();
     }
 
     // Центральный круг.
@@ -436,7 +395,85 @@ class _WheelPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _WheelPainter oldDelegate) {
+  bool shouldRepaint(covariant _WheelBasePainter oldDelegate) {
+    return oldDelegate.rotation != rotation || oldDelegate.sectors != sectors;
+  }
+}
+
+class _WheelLabelPainter extends CustomPainter {
+  _WheelLabelPainter({required this.sectors, required this.rotation});
+
+  final List<WheelSector> sectors;
+  final double rotation;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double segmentAngle = 2 * pi / sectors.length;
+    final Offset center = size.center(Offset.zero);
+    final double radius = min(size.width, size.height) / 2;
+
+    for (int i = 0; i < sectors.length; i++) {
+      final WheelSector sector = sectors[i];
+      final double startAngle = rotation + i * segmentAngle;
+      final double angle = startAngle + segmentAngle / 2;
+
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(angle);
+      canvas.translate(0, -radius * 0.935);
+
+      final TextPainter textPainter = TextPainter(
+        text: TextSpan(
+          text: sector.label,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.7,
+            shadows: <Shadow>[
+              Shadow(color: Colors.white70, blurRadius: 12),
+            ],
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final Offset textOffset = Offset(-textPainter.width / 2, -textPainter.height / 2);
+      final RRect bubble = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          textOffset.dx - 7,
+          textOffset.dy - 5,
+          textPainter.width + 14,
+          textPainter.height + 10,
+        ),
+        const Radius.circular(7),
+      );
+
+      final Paint bubblePaint = Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            Colors.white.withOpacity(0.95),
+            Colors.blue.shade100.withOpacity(0.55),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(bubble.outerRect);
+      canvas.drawRRect(bubble, bubblePaint);
+
+      final Paint bubbleBorder = Paint()
+        ..color = Colors.white.withOpacity(0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      canvas.drawRRect(bubble, bubbleBorder);
+
+      textPainter.paint(canvas, textOffset);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WheelLabelPainter oldDelegate) {
     return oldDelegate.rotation != rotation || oldDelegate.sectors != sectors;
   }
 }
