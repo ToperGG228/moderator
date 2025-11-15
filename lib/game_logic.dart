@@ -86,47 +86,64 @@ class GameEngine {
 
   /// Обрабатывает сектор барабана и возвращает описание эффекта.
   SectorResolution applySector(WheelSector sector) {
+    String message;
+    bool allowLetterGuess = true;
+    bool turnEnds = false;
+    bool requiresMysteryQuestion = false;
+    bool allowLetterSelection = false;
+
     switch (sector.type) {
       case SectorType.points:
         final int points = sector.points ?? 0;
         scores[activeTeamIndex] += points;
-        return SectorResolution(message: 'Команда получает $points очков!');
+        message = 'Команда получает $points очков!';
+        break;
+      case SectorType.miss:
+        message = 'Сектор 0. Команда ничего не получает, ход переходит дальше.';
+        allowLetterGuess = false;
+        turnEnds = true;
+        _nextTeam();
+        break;
       case SectorType.bankrupt:
         scores[activeTeamIndex] = 0;
+        message = 'Банкрот! Счёт команды обнуляется, ход переходит следующей команде.';
+        allowLetterGuess = false;
+        turnEnds = true;
         _nextTeam();
-        return const SectorResolution(
-          message: 'Банкрот! Ход переходит следующей команде.',
-          allowLetterGuess: false,
-          turnEnds: true,
-        );
+        break;
       case SectorType.doubleScore:
         scores[activeTeamIndex] *= 2;
-        return const SectorResolution(message: 'Очки команды удваиваются!');
+        message = 'Сектор «${sector.label}»! Счёт команды удваивается.';
+        break;
       case SectorType.bonus:
-        final int bonus = sector.points ?? 100;
-        scores[activeTeamIndex] += bonus;
-        return SectorResolution(
-          message: 'Бонус +$bonus очков! Выберите букву для открытия.',
-          allowLetterSelection: true,
-        );
+        final int bonus = sector.points ?? 0;
+        if (bonus > 0) {
+          scores[activeTeamIndex] += bonus;
+        }
+        message = bonus > 0
+            ? 'Сектор «${sector.label}». Команда получает +$bonus очков и может открыть любую букву.'
+            : 'Сектор «${sector.label}». Команда может открыть любую букву в слове.';
+        allowLetterSelection = true;
+        break;
       case SectorType.prize:
-        scores[activeTeamIndex] += 500;
-        return const SectorResolution(
-          message: 'Сектор «Приз»! +500 очков команде.',
-        );
+        const int prizePoints = 500;
+        scores[activeTeamIndex] += prizePoints;
+        message = 'Сектор «${sector.label}»! Команда получает $prizePoints очков.';
+        break;
       case SectorType.mystery:
-        return const SectorResolution(
-          message: 'Сектор «?»! Ответьте на дополнительный вопрос.',
-          requiresMysteryQuestion: true,
-        );
-      case SectorType.miss:
-        _nextTeam();
-        return const SectorResolution(
-          message: 'Ничего не происходит. Ход переходит следующей команде.',
-          allowLetterGuess: false,
-          turnEnds: true,
-        );
+        message = 'Сектор «${sector.label}»! Ответьте на дополнительный вопрос.';
+        allowLetterGuess = false;
+        requiresMysteryQuestion = true;
+        break;
     }
+
+    return SectorResolution(
+      message: message,
+      allowLetterGuess: allowLetterGuess,
+      turnEnds: turnEnds,
+      requiresMysteryQuestion: requiresMysteryQuestion,
+      allowLetterSelection: allowLetterSelection,
+    );
   }
 
   /// Обрабатывает попытку отгадать букву. Возвращает true, если буква найдена.

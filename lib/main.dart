@@ -172,7 +172,9 @@ class _GameScreenState extends State<GameScreen> {
         _engine.applyMysteryOutcome(success);
         setState(() {});
         _showSnack(
-          success ? 'Верный ответ! +1000 очков.' : 'Ответ неверный. -200 очков.',
+          success
+              ? 'Верный ответ! +1000 очков команде.'
+              : 'Неверный ответ. -200 очков.',
         );
       }
     }
