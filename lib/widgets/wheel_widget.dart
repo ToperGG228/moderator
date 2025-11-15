@@ -104,16 +104,18 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     _spinning = true;
     final int targetIndex = _chooseTargetIndex();
-    int extra = (_currentIndex - targetIndex) % widget.sectors.length;
-    if (extra <= 0) {
-      extra += widget.sectors.length;
-    }
     final int fullTurns = 5 + _random.nextInt(3); // 5–7 полных оборотов.
 
     _dramaticNeighbor = _shouldDramatize(targetIndex);
     _landingOffset = _randomLandingOffset();
-    final double deltaOffset = _landingOffset - _currentOffset;
-    final double totalAngle = fullTurns * 2 * pi + extra * _segmentAngle + deltaOffset;
+    final double targetAbsoluteRotation =
+        _baseRotation - targetIndex * _segmentAngle + _landingOffset;
+    double rotationDifference =
+        _normalizePositive(targetAbsoluteRotation - _rotation);
+    if (rotationDifference < _segmentAngle * 0.05) {
+      rotationDifference += 2 * pi;
+    }
+    final double totalAngle = fullTurns * 2 * pi + rotationDifference;
 
     _targetIndex = targetIndex;
     _startRotation = _rotation;
@@ -129,6 +131,15 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     });
 
     return completer.future;
+  }
+
+  double _normalizePositive(double angle) {
+    final double tau = 2 * pi;
+    double normalized = angle % tau;
+    if (normalized < 0) {
+      normalized += tau;
+    }
+    return normalized;
   }
 
   void _finishSpin() {
