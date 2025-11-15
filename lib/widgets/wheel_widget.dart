@@ -31,16 +31,14 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   double _rotation = 0;
   double _startRotation = 0;
-  double _targetRotation = 0;
-  double _currentOffset = 0;
+  double _endRotation = 0;
   double _landingOffset = 0;
+  double _t1 = 0.3;
+  double _t2 = 0.75;
   int _currentIndex = 0;
   int _targetIndex = 0;
   bool _spinning = false;
-  bool _dramaticNeighbor = false;
-  double _accelPortion = 0.2;
-  double _cruisePortion = 0.55;
-  double _decelPortion = 0.25;
+  Completer<WheelSector>? _spinCompleter;
 
   double get _segmentAngle => 2 * pi / widget.sectors.length;
 
@@ -53,20 +51,19 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     super.initState();
     _currentIndex = widget.initialIndex % widget.sectors.length;
     _targetIndex = _currentIndex;
-    _currentOffset = 0;
     _landingOffset = 0;
-    _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
+    _rotation = _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
     _startRotation = _rotation;
-    _targetRotation = _rotation;
+    _endRotation = _rotation;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 6200),
+      duration: const Duration(milliseconds: 1000),
     )
       ..addListener(() {
-        // Преобразуем прогресс контроллера через драматичный профиль скорости.
-        final double curvedValue = _computeSpinProgress(_controller.value);
+        final double curvedValue = _profile(_controller.value);
         setState(() {
-          _rotation = lerpDouble(_startRotation, _targetRotation, curvedValue)!;
+          _rotation =
+              lerpDouble(_startRotation, _endRotation, curvedValue) ?? _endRotation;
         });
       })
       ..addStatusListener((AnimationStatus status) {
@@ -82,11 +79,10 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     if (oldWidget.initialIndex != widget.initialIndex && !_spinning) {
       _currentIndex = widget.initialIndex % widget.sectors.length;
       _targetIndex = _currentIndex;
-      _currentOffset = 0;
       _landingOffset = 0;
-      _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
+      _rotation = _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
       _startRotation = _rotation;
-      _targetRotation = _rotation;
+      _endRotation = _rotation;
     }
   }
 
@@ -103,69 +99,75 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     }
 
     _spinning = true;
-    final int targetIndex = _chooseTargetIndex();
-    final int fullTurns = 5 + _random.nextInt(3); // 5–7 полных оборотов.
-
-    _dramaticNeighbor = _shouldDramatize(targetIndex);
+    _targetIndex = _pickWeightedSectorIndex();
     _landingOffset = _randomLandingOffset();
-    final double targetAbsoluteRotation =
-        _baseRotation - targetIndex * _segmentAngle + _landingOffset;
-    double rotationDifference =
-        _normalizePositive(targetAbsoluteRotation - _rotation);
-    if (rotationDifference < _segmentAngle * 0.05) {
-      rotationDifference += 2 * pi;
+
+    final int fullTurns = 4 + _random.nextInt(3); // 4–6 полных оборотов.
+    final double baseAngle = _rotation;
+    final double idealAngle =
+        _normalizeAngle(_angleForIndex(_targetIndex, _landingOffset));
+
+    double delta = idealAngle - baseAngle;
+    while (delta <= 0) {
+      delta += 2 * pi;
     }
-    final double totalAngle = fullTurns * 2 * pi + rotationDifference;
 
-    _targetIndex = targetIndex;
-    _startRotation = _rotation;
-    _targetRotation = _rotation + totalAngle;
+    final double totalAngle = fullTurns * 2 * pi + delta;
 
-    _configureDurations();
+    _startRotation = baseAngle;
+    _endRotation = baseAngle + totalAngle;
 
-    final Completer<WheelSector> completer = Completer<WheelSector>();
+    _configureTimings();
 
-    _controller.forward(from: 0).whenComplete(() {
-      final WheelSector sector = widget.sectors[_targetIndex];
-      completer.complete(sector);
-    });
+    _spinCompleter = Completer<WheelSector>();
+    _controller.forward(from: 0);
 
-    return completer.future;
-  }
-
-  double _normalizePositive(double angle) {
-    final double tau = 2 * pi;
-    double normalized = angle % tau;
-    if (normalized < 0) {
-      normalized += tau;
-    }
-    return normalized;
+    return _spinCompleter!.future;
   }
 
   void _finishSpin() {
-    // Пересчитываем индекс сектора под стрелкой.
     _currentIndex = _targetIndex % widget.sectors.length;
-
-    // Нормализуем угол, чтобы он не рос бесконечно.
-    _currentOffset = _landingOffset;
-    _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
+    _rotation =
+        _normalizeAngle(_angleForIndex(_currentIndex, _landingOffset));
     _startRotation = _rotation;
-    _targetRotation = _rotation;
+    _endRotation = _rotation;
 
     _spinning = false;
-    _dramaticNeighbor = false;
     final WheelSector sector = widget.sectors[_currentIndex];
-    widget.onSpinComplete?.call(sector);
-    setState(() {});
+    try {
+      widget.onSpinComplete?.call(sector);
+    } finally {
+      _spinCompleter?.complete(sector);
+      _spinCompleter = null;
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
-  int _chooseTargetIndex() {
-    final List<double> weights = widget.sectors
-        .map((WheelSector sector) => _sectorWeight(sector))
-        .toList();
-    final double totalWeight =
-        weights.fold<double>(0, (double sum, double value) => sum + value);
-    double roll = _random.nextDouble() * totalWeight;
+  double _sectorWeight(WheelSector sector) {
+    switch (sector.type) {
+      case SectorType.points:
+        return 1.0;
+      case SectorType.bonus:
+      case SectorType.mystery:
+      case SectorType.prize:
+        return 0.6;
+      case SectorType.bankrupt:
+        return 1.4;
+      case SectorType.doubleScore:
+        return 0.9;
+      case SectorType.miss:
+        return 0.8;
+    }
+  }
+
+  int _pickWeightedSectorIndex() {
+    final List<double> weights =
+        widget.sectors.map<double>(_sectorWeight).toList(growable: false);
+    final double total =
+        weights.fold<double>(0, (double sum, double weight) => sum + weight);
+    double roll = _random.nextDouble() * total;
     for (int i = 0; i < weights.length; i++) {
       roll -= weights[i];
       if (roll <= 0) {
@@ -175,108 +177,58 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     return weights.length - 1;
   }
 
-  double _sectorWeight(WheelSector sector) {
-    switch (sector.type) {
-      case SectorType.points:
-        return 1.0;
-      case SectorType.bonus:
-        return 0.45;
-      case SectorType.mystery:
-        return 0.45;
-      case SectorType.prize:
-        return 0.45;
-      case SectorType.bankrupt:
-        return 1.5;
-      case SectorType.doubleScore:
-        return 0.7;
-      case SectorType.miss:
-        return 0.9;
-    }
-  }
-
-  double _computeSpinProgress(double t) {
-    final double value = _dramaticNeighbor ? _dramaticProfile(t) : _defaultProfile(t);
-    return value.clamp(0.0, 1.0);
-  }
-
-  double _defaultProfile(double t) {
+  double _profile(double t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    final double accelEnd = _accelPortion;
-    final double cruiseEnd = _accelPortion + _cruisePortion;
-    if (t < accelEnd) {
-      final double normalized = t / accelEnd;
-      return 0.2 * Curves.easeInCubic.transform(normalized);
-    }
-    if (t < cruiseEnd) {
-      final double normalized = (t - accelEnd) / _cruisePortion;
-      return 0.2 + 0.58 * Curves.linear.transform(normalized);
-    }
-    final double normalized = (t - cruiseEnd) / _decelPortion;
-    return 0.78 + 0.22 * Curves.easeOutCubic.transform(normalized);
-  }
 
-  double _dramaticProfile(double t) {
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    final double accelEnd = _accelPortion;
-    final double cruiseEnd = _accelPortion + _cruisePortion;
-    if (t < accelEnd) {
-      final double normalized = t / accelEnd;
-      return 0.24 * Curves.easeInCubic.transform(normalized);
-    }
-    if (t < cruiseEnd) {
-      final double normalized = (t - accelEnd) / _cruisePortion;
-      return 0.24 + 0.52 * Curves.linear.transform(normalized);
-    }
-    if (t < 1 - _decelPortion * 0.35) {
-      final double normalized =
-          (t - cruiseEnd) / (_decelPortion * 0.65).clamp(0.0001, 1.0);
-      return 0.76 + 0.16 * Curves.easeOutQuart.transform(normalized);
-    }
-    final double tailDuration = _decelPortion * 0.35;
-    final double normalized = (t - (1 - tailDuration)) / tailDuration.clamp(0.0001, 1.0);
-    return 0.92 + 0.08 * Curves.easeOutExpo.transform(normalized);
-  }
+    const double accelProgress = 0.3;
+    const double cruiseProgress = 0.85;
 
-  bool _shouldDramatize(int targetIndex) {
-    bool isSpecial(int index) {
-      final SectorType type = widget.sectors[index].type;
-      return type == SectorType.bonus ||
-          type == SectorType.mystery ||
-          type == SectorType.prize ||
-          type == SectorType.bankrupt;
+    if (t < _t1) {
+      final double normalized = (t / _t1).clamp(0.0, 1.0);
+      return accelProgress * Curves.easeInQuad.transform(normalized);
     }
 
-    if (isSpecial(targetIndex)) {
-      return false;
+    if (t < _t2) {
+      final double normalized = ((t - _t1) / (_t2 - _t1)).clamp(0.0, 1.0);
+      return accelProgress +
+          (cruiseProgress - accelProgress) * Curves.linear.transform(normalized);
     }
 
-    final int length = widget.sectors.length;
-    final int prev = (targetIndex - 1 + length) % length;
-    final int next = (targetIndex + 1) % length;
-    return isSpecial(prev) || isSpecial(next);
+    final double normalized = ((t - _t2) / (1 - _t2)).clamp(0.0, 1.0);
+    return cruiseProgress +
+        (1 - cruiseProgress) * Curves.easeOutCubic.transform(normalized);
   }
 
   double _randomLandingOffset() {
-    // Лёгкое смещение, чтобы стрелка не оказывалась точно на границе.
-    final double span = _dramaticNeighbor ? 0.32 : 0.55;
-    double value;
+    double offset;
     do {
-      value = (_random.nextDouble() - 0.5) * _segmentAngle * span;
-    } while (value.abs() < _segmentAngle * 0.12);
+      offset = (_random.nextDouble() - 0.5) * _segmentAngle * 0.4;
+    } while (offset.abs() < _segmentAngle * 0.05);
+    return offset;
+  }
+
+  void _configureTimings() {
+    const double accelSeconds = 1.5;
+    final double cruiseSeconds = 0.8 + _random.nextDouble() * 2.0;
+    final double decelSeconds = 0.4 + _random.nextDouble() * 1.0;
+    final double total = accelSeconds + cruiseSeconds + decelSeconds;
+    _t1 = accelSeconds / total;
+    _t2 = (accelSeconds + cruiseSeconds) / total;
+    _controller.duration = Duration(milliseconds: (total * 1000).round());
+  }
+
+  double _normalizeAngle(double angle) {
+    final double tau = 2 * pi;
+    double value = angle % tau;
+    if (value < 0) {
+      value += tau;
+    }
     return value;
   }
 
-  void _configureDurations() {
-    final double accelSeconds = 1.0 + _random.nextDouble() * 0.5;
-    final double cruiseSeconds = 2.0 + _random.nextDouble() * 0.5;
-    final double decelSeconds = 2.0 + _random.nextDouble() * 1.25;
-    final double total = accelSeconds + cruiseSeconds + decelSeconds;
-    _accelPortion = accelSeconds / total;
-    _cruisePortion = cruiseSeconds / total;
-    _decelPortion = decelSeconds / total;
-    _controller.duration = Duration(milliseconds: (total * 1000).round());
+  double _angleForIndex(int index, double offset) {
+    return _baseRotation - index * _segmentAngle + offset;
   }
 
   @override
