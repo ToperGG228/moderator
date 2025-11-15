@@ -37,8 +37,8 @@ class TeamPanel extends StatelessWidget {
           ];
 
     return Container(
-      height: 110,
-      padding: const EdgeInsets.all(12),
+      height: 100,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor, width: isActive ? 2 : 1.2),
@@ -52,8 +52,8 @@ class TeamPanel extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                width: 86,
-                height: 86,
+                width: 78,
+                height: 78,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.white24, width: 1.2),
                   borderRadius: BorderRadius.circular(12),

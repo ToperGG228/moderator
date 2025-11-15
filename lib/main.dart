@@ -748,13 +748,22 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildWheelAndTeams({required bool isWide}) {
-    final Widget wheelColumn = _buildWheelSection(wheelSize: isWide ? 520 : 420);
+  Widget _buildWheelAndTeams({
+    required bool isWide,
+    required double maxWidth,
+  }) {
+    final double wheelSize = isWide
+        ? (maxWidth * 0.45).clamp(520, 720)
+        : 420;
+    final Widget wheelColumn = SizedBox(
+      width: wheelSize,
+      child: _buildWheelSection(wheelSize: wheelSize),
+    );
     final Widget wheel = isWide
         ? Align(
             alignment: Alignment.topLeft,
             child: Padding(
-              padding: const EdgeInsets.only(top: 120),
+              padding: const EdgeInsets.only(top: 60),
               child: wheelColumn,
             ),
           )
@@ -774,19 +783,25 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(
-          flex: 3,
-          child: wheel,
-        ),
-        const SizedBox(width: 32),
-        SizedBox(
-          width: 320,
-          child: _buildTeamColumn(),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Flexible(
+            flex: 3,
+            child: wheel,
+          ),
+          const SizedBox(width: 36),
+          Padding(
+            padding: const EdgeInsets.only(top: 26),
+            child: SizedBox(
+              width: 270,
+              child: _buildTeamColumn(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -801,11 +816,16 @@ class _GameScreenState extends State<GameScreen> {
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 final bool isWide = constraints.maxWidth >= 1100;
-                final Widget keyboard = LetterKeyboard(
-                  letters: _letters,
-                  disabledLetters: _engine.usedLetters,
-                  isEnabled: _canGuessLetter && !_engine.isGameFinished,
-                  onLetterPressed: _onLetterPressed,
+                final Widget keyboard = Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: LetterKeyboard(
+                      letters: _letters,
+                      disabledLetters: _engine.usedLetters,
+                      isEnabled: _canGuessLetter && !_engine.isGameFinished,
+                      onLetterPressed: _onLetterPressed,
+                    ),
+                  ),
                 );
 
                 if (!isWide) {
@@ -814,12 +834,15 @@ class _GameScreenState extends State<GameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
                         _buildQuestionBlock(),
-                        const SizedBox(height: 50),
+                        const SizedBox(height: 36),
                         keyboard,
-                        const SizedBox(height: 40),
-                        _buildWheelAndTeams(isWide: false),
+                        const SizedBox(height: 44),
+                        _buildWheelAndTeams(
+                          isWide: false,
+                          maxWidth: constraints.maxWidth,
+                        ),
                       ],
                     ),
                   );
@@ -828,13 +851,16 @@ class _GameScreenState extends State<GameScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 40),
                     _buildQuestionBlock(),
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 32),
                     keyboard,
-                    const SizedBox(height: 50),
+                    const SizedBox(height: 56),
                     Expanded(
-                      child: _buildWheelAndTeams(isWide: true),
+                      child: _buildWheelAndTeams(
+                        isWide: true,
+                        maxWidth: constraints.maxWidth,
+                      ),
                     ),
                   ],
                 );
