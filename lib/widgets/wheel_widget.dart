@@ -83,44 +83,57 @@ class WheelWidgetState extends State<WheelWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final double haloSize = widget.size + 120;
+    final double rimSize = widget.size + 52;
     return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: FortuneWheel(
-        selected: _selectedController.stream,
-        animateFirst: false,
-        indicators: const <FortuneIndicator>[
-          FortuneIndicator(
-            alignment: Alignment.topCenter,
-            child: TriangleIndicator(
-              color: Color(0xFFFFD54F),
-              elevation: 6,
-              width: 38,
-              height: 38,
-            ),
-          ),
-        ],
-        duration: _currentDuration,
-        onAnimationEnd: _handleAnimationEnd,
-        items: <FortuneItem>[
-          for (int i = 0; i < widget.sectors.length; i++)
-            FortuneItem(
-              style: FortuneItemStyle(
-                color: _sectorColor(i),
-                borderColor: Colors.black.withOpacity(0.35),
-                borderWidth: 3,
-                textStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: 1.1,
+      width: haloSize,
+      height: haloSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          _WheelHalo(size: haloSize),
+          _WheelRim(size: rimSize),
+          SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: ClipOval(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: <Color>[
+                      Color(0xFF1E1F2F),
+                      Color(0xFF0F1736),
+                    ],
+                    radius: 0.95,
+                  ),
+                ),
+                child: FortuneWheel(
+                  selected: _selectedController.stream,
+                  animateFirst: false,
+                  duration: _currentDuration,
+                  indicators: const <FortuneIndicator>[
+                    const FortuneIndicator(
+                      alignment: Alignment.topCenter,
+                      child: const _WheelPointer(),
+                    ),
+                  ],
+                  onAnimationEnd: _handleAnimationEnd,
+                  items: <FortuneItem>[
+                    for (int i = 0; i < widget.sectors.length; i++)
+                      FortuneItem(
+                        style: FortuneItemStyle(
+                          color: _sectorColor(i),
+                          borderColor: Colors.black.withOpacity(0.4),
+                          borderWidth: 2.5,
+                        ),
+                        child: _WheelSectorLabel(sector: widget.sectors[i]),
+                      ),
+                  ],
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Text(widget.sectors[i].label, textAlign: TextAlign.center),
-              ),
             ),
+          ),
+          _WheelHub(size: widget.size * 0.28),
         ],
       ),
     );
@@ -194,5 +207,226 @@ class WheelWidgetState extends State<WheelWidget> {
       Color(0xFF00897B),
     ];
     return sector.color ?? palette[index % palette.length];
+  }
+}
+
+class _WheelHalo extends StatelessWidget {
+  const _WheelHalo({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: <Color>[
+            Color(0x331D7CFF),
+            Color(0x11060A2B),
+          ],
+          radius: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _WheelRim extends StatelessWidget {
+  const _WheelRim({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: <Color>[
+            Color(0xFF424B8E),
+            Color(0xFF10152C),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 3),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 30,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WheelHub extends StatelessWidget {
+  const _WheelHub({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: <Color>[
+            Color(0xFFFFC857),
+            Color(0xFFE65100),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.deepOrange.withOpacity(0.6),
+            blurRadius: 18,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          'Поле
+чудес',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WheelPointer extends StatelessWidget {
+  const _WheelPointer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 56,
+          height: 18,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D132C),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amberAccent, width: 1.5),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.amberAccent.withOpacity(0.6),
+                blurRadius: 12,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        const TriangleIndicator(
+          color: Color(0xFFFFD54F),
+          elevation: 8,
+          width: 44,
+          height: 44,
+        ),
+      ],
+    );
+  }
+}
+
+class _WheelSectorLabel extends StatelessWidget {
+  const _WheelSectorLabel({required this.sector});
+
+  final WheelSector sector;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showPoints = sector.type == SectorType.points && sector.points != null;
+    final TextStyle labelStyle = const TextStyle(
+      color: Colors.white,
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1.1,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.2),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Text(
+            sector.label,
+            textAlign: TextAlign.center,
+            style: labelStyle,
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (showPoints)
+          Text(
+            '+${sector.points} очков',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+            ),
+          )
+        else
+          Text(
+            _subtitleForSector(sector),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.75),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _subtitleForSector(WheelSector sector) {
+    switch (sector.type) {
+      case SectorType.points:
+        return '';
+      case SectorType.bonus:
+        return 'Бонус';
+      case SectorType.prize:
+        return 'Приз';
+      case SectorType.bankrupt:
+        return 'Банкрот';
+      case SectorType.doubleScore:
+        return 'x2';
+      case SectorType.mystery:
+        return 'Вопрос';
+      case SectorType.miss:
+        return 'Промах';
+    }
   }
 }
