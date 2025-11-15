@@ -38,6 +38,9 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   int _targetIndex = 0;
   bool _spinning = false;
   bool _dramaticNeighbor = false;
+  double _accelPortion = 0.2;
+  double _cruisePortion = 0.55;
+  double _decelPortion = 0.25;
 
   double get _segmentAngle => 2 * pi / widget.sectors.length;
 
@@ -55,7 +58,10 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     _rotation = _baseRotation - _currentIndex * _segmentAngle + _currentOffset;
     _startRotation = _rotation;
     _targetRotation = _rotation;
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 6200))
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 6200),
+    )
       ..addListener(() {
         // Преобразуем прогресс контроллера через драматичный профиль скорости.
         final double curvedValue = _computeSpinProgress(_controller.value);
@@ -112,6 +118,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     _targetIndex = targetIndex;
     _startRotation = _rotation;
     _targetRotation = _rotation + totalAngle;
+
+    _configureDurations();
 
     final Completer<WheelSector> completer = Completer<WheelSector>();
 
@@ -183,34 +191,40 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
   double _defaultProfile(double t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    if (t < 0.24) {
-      final double normalized = t / 0.24;
-      return 0.38 * Curves.easeInExpo.transform(normalized);
+    final double accelEnd = _accelPortion;
+    final double cruiseEnd = _accelPortion + _cruisePortion;
+    if (t < accelEnd) {
+      final double normalized = t / accelEnd;
+      return 0.2 * Curves.easeInCubic.transform(normalized);
     }
-    if (t < 0.82) {
-      final double normalized = (t - 0.24) / 0.58;
-      return 0.38 + 0.48 * Curves.linear.transform(normalized);
+    if (t < cruiseEnd) {
+      final double normalized = (t - accelEnd) / _cruisePortion;
+      return 0.2 + 0.58 * Curves.linear.transform(normalized);
     }
-    final double normalized = (t - 0.82) / 0.18;
-    return 0.86 + 0.14 * Curves.easeOutQuint.transform(normalized);
+    final double normalized = (t - cruiseEnd) / _decelPortion;
+    return 0.78 + 0.22 * Curves.easeOutCubic.transform(normalized);
   }
 
   double _dramaticProfile(double t) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    if (t < 0.26) {
-      final double normalized = t / 0.26;
-      return 0.32 * Curves.easeInExpo.transform(normalized);
+    final double accelEnd = _accelPortion;
+    final double cruiseEnd = _accelPortion + _cruisePortion;
+    if (t < accelEnd) {
+      final double normalized = t / accelEnd;
+      return 0.24 * Curves.easeInCubic.transform(normalized);
     }
-    if (t < 0.7) {
-      final double normalized = (t - 0.26) / 0.44;
-      return 0.32 + 0.42 * Curves.linear.transform(normalized);
+    if (t < cruiseEnd) {
+      final double normalized = (t - accelEnd) / _cruisePortion;
+      return 0.24 + 0.52 * Curves.linear.transform(normalized);
     }
-    if (t < 0.9) {
-      final double normalized = (t - 0.7) / 0.2;
-      return 0.74 + 0.18 * Curves.easeOutCubic.transform(normalized);
+    if (t < 1 - _decelPortion * 0.35) {
+      final double normalized =
+          (t - cruiseEnd) / (_decelPortion * 0.65).clamp(0.0001, 1.0);
+      return 0.76 + 0.16 * Curves.easeOutQuart.transform(normalized);
     }
-    final double normalized = (t - 0.9) / 0.1;
+    final double tailDuration = _decelPortion * 0.35;
+    final double normalized = (t - (1 - tailDuration)) / tailDuration.clamp(0.0001, 1.0);
     return 0.92 + 0.08 * Curves.easeOutExpo.transform(normalized);
   }
 
@@ -243,18 +257,30 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
     return value;
   }
 
+  void _configureDurations() {
+    final double accelSeconds = 1.0 + _random.nextDouble() * 0.5;
+    final double cruiseSeconds = 2.0 + _random.nextDouble() * 0.5;
+    final double decelSeconds = 2.0 + _random.nextDouble() * 1.25;
+    final double total = accelSeconds + cruiseSeconds + decelSeconds;
+    _accelPortion = accelSeconds / total;
+    _cruisePortion = cruiseSeconds / total;
+    _decelPortion = decelSeconds / total;
+    _controller.duration = Duration(milliseconds: (total * 1000).round());
+  }
+
   @override
   Widget build(BuildContext context) {
     final double pointerOffset = _pointerSize * 0.35;
+    final double pointerHeadroom = _pointerSize * 0.18;
     return SizedBox(
       width: widget.size,
-      height: widget.size + pointerOffset,
+      height: widget.size + pointerOffset + pointerHeadroom,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: <Widget>[
           Positioned(
-            top: pointerOffset,
+            top: pointerHeadroom + pointerOffset,
             child: DecoratedBox(
               decoration: const BoxDecoration(shape: BoxShape.circle),
               child: Container(
@@ -282,7 +308,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
             ),
           ),
           Positioned(
-            top: 0,
+            top: pointerHeadroom - _pointerSize * 0.1,
             child: Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
@@ -337,13 +363,10 @@ class _WheelPainter extends CustomPainter {
         text: TextSpan(
           text: sector.label,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
+            color: Colors.black87,
+            fontSize: 11.5,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.6,
-            shadows: <Shadow>[
-              Shadow(offset: Offset(0, 1), blurRadius: 3, color: Colors.black54),
-            ],
           ),
         ),
         textAlign: TextAlign.center,
@@ -367,13 +390,18 @@ class _WheelPainter extends CustomPainter {
       final Paint bubblePaint = Paint()
         ..shader = LinearGradient(
           colors: <Color>[
-            Colors.black.withOpacity(0.65),
-            Colors.indigo.withOpacity(0.35),
+            Colors.white.withOpacity(0.92),
+            Colors.lightBlueAccent.withOpacity(0.35),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ).createShader(bubble.outerRect);
       canvas.drawRRect(bubble, bubblePaint);
+      final Paint bubbleBorder = Paint()
+        ..color = Colors.white.withOpacity(0.75)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1;
+      canvas.drawRRect(bubble, bubbleBorder);
       textPainter.paint(canvas, textOffset);
       canvas.restore();
     }
@@ -422,26 +450,9 @@ class _WheelPointer extends StatelessWidget {
   Widget build(BuildContext context) {
     final double width = size * 0.6;
     final double height = size;
-    return Container(
+    return SizedBox(
       width: width,
       height: height,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            Colors.amberAccent.withOpacity(0.32),
-            Colors.deepOrangeAccent.withOpacity(0.12),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.amberAccent.withOpacity(0.6),
-            blurRadius: 18,
-            spreadRadius: 4,
-          ),
-        ],
-      ),
       child: CustomPaint(
         painter: _PointerPainter(),
       ),
@@ -454,54 +465,56 @@ class _PointerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final Path path = Path()
       ..moveTo(size.width / 2, size.height)
-      ..lineTo(size.width, size.height * 0.28)
+      ..lineTo(size.width * 0.82, size.height * 0.28)
       ..quadraticBezierTo(
         size.width / 2,
-        0,
-        0,
+        size.height * 0.02,
+        size.width * 0.18,
         size.height * 0.28,
       )
       ..close();
 
-    canvas.drawShadow(path, Colors.amberAccent.withOpacity(0.9), 14, true);
+    canvas.drawShadow(path, Colors.orangeAccent.withOpacity(0.8), 16, true);
 
     final Paint paint = Paint()
       ..shader = LinearGradient(
         colors: <Color>[
-          Colors.amberAccent.shade100,
-          Colors.deepOrangeAccent.shade200,
+          Colors.deepOrangeAccent.shade100,
+          Colors.amberAccent.shade200,
+          Colors.deepOrangeAccent.shade400,
         ],
+        stops: const <double>[0.0, 0.55, 1.0],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawPath(path, paint);
 
     final Paint borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    canvas.drawPath(path, borderPaint);
+
+    final Path innerPath = Path()
+      ..moveTo(size.width / 2, size.height * 0.92)
+      ..lineTo(size.width * 0.74, size.height * 0.36)
+      ..quadraticBezierTo(
+        size.width / 2,
+        size.height * 0.12,
+        size.width * 0.26,
+        size.height * 0.36,
+      );
+    final Paint innerHighlight = Paint()
       ..shader = LinearGradient(
         colors: <Color>[
-          Colors.white.withOpacity(0.95),
-          Colors.amber.shade200,
+          Colors.white.withOpacity(0.85),
+          Colors.white.withOpacity(0.0),
         ],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2;
-    canvas.drawPath(path, borderPaint);
-
-    final Paint innerHighlight = Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final Path innerPath = Path()
-      ..moveTo(size.width / 2, size.height * 0.92)
-      ..lineTo(size.width * 0.82, size.height * 0.34)
-      ..quadraticBezierTo(
-        size.width / 2,
-        size.height * 0.08,
-        size.width * 0.18,
-        size.height * 0.34,
-      );
+      ..strokeWidth = 1.1;
     canvas.drawPath(innerPath, innerHighlight);
   }
 
