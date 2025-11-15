@@ -113,15 +113,13 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   _SpinPlan _createSpinPlan() {
     final int pickedIndex = _pickWeightedSectorIndex();
-    final double offset = _randomLandingOffset();
-    final double startAngle = _rotation;
-    final double targetAngle = _angleForIndex(pickedIndex) + offset;
+    final double normalizedStart = _normalizeAngle(_rotation);
+    _rotation = normalizedStart;
+    final double targetAngle =
+        _angleForIndex(pickedIndex) + _randomLandingOffset();
     final int fullTurns = 4 + _random.nextInt(3);
 
-    double delta = targetAngle - startAngle;
-    while (delta <= 0) {
-      delta += 2 * pi;
-    }
+    final double delta = _positiveDelta(normalizedStart, targetAngle);
     final double totalAngle = fullTurns * 2 * pi + delta;
 
     const double accelSeconds = 1.5;
@@ -134,8 +132,8 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
     return _SpinPlan(
       targetIndex: pickedIndex,
-      startRotation: startAngle,
-      endRotation: startAngle + totalAngle,
+      startRotation: normalizedStart,
+      endRotation: normalizedStart + totalAngle,
       duration: Duration(milliseconds: (totalSeconds * 1000).round()),
       t1: t1,
       t2: t2,
@@ -144,7 +142,7 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   void _finishSpin() {
     _currentIndex = _targetIndex % widget.sectors.length;
-    _rotation = _endRotation;
+    _rotation = _normalizeAngle(_endRotation);
     _startRotation = _rotation;
     _endRotation = _rotation;
 
@@ -218,6 +216,26 @@ class WheelWidgetState extends State<WheelWidget> with SingleTickerProviderState
 
   double _angleForIndex(int index) {
     return _baseRotation - index * _segmentAngle;
+  }
+
+  double _normalizeAngle(double angle) {
+    final double fullCircle = 2 * pi;
+    double normalized = angle % fullCircle;
+    if (normalized > pi) {
+      normalized -= fullCircle;
+    }
+    if (normalized <= -pi) {
+      normalized += fullCircle;
+    }
+    return normalized;
+  }
+
+  double _positiveDelta(double start, double target) {
+    double delta = target - start;
+    while (delta <= 0) {
+      delta += 2 * pi;
+    }
+    return delta;
   }
 
   @override
