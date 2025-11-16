@@ -41,6 +41,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  static const double _contentMaxWidth = 940;
   final StreamController<int> _fortuneController = StreamController<int>.broadcast();
   late final List<WheelSector> _sectors;
   GameEngine? _engine;
@@ -371,18 +372,20 @@ class _GameScreenState extends State<GameScreen> {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildQuestionBlock(),
+          _buildConstrained(_buildQuestionBlock()),
           const SizedBox(height: 24),
-          Card(
-            color: Colors.black.withOpacity(0.35),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: LetterKeyboard(
-                usedLetters: _engine?.usedLetters ?? <String>{},
-                onLetterPressed: _onLetterPressed,
+          _buildConstrained(
+            Card(
+              color: Colors.black.withOpacity(0.35),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                child: LetterKeyboard(
+                  usedLetters: _engine?.usedLetters ?? <String>{},
+                  onLetterPressed: _onLetterPressed,
+                ),
               ),
             ),
           ),
@@ -400,9 +403,9 @@ class _GameScreenState extends State<GameScreen> {
     final engine = _engine;
     return Column(
       children: [
-        _buildWheelAndButton(),
+        _buildConstrained(_buildWheelAndButton()),
         const SizedBox(height: 24),
-        if (engine != null) _buildTeamColumn(engine),
+        if (engine != null) _buildConstrained(_buildTeamColumn(engine)),
       ],
     );
   }
@@ -500,20 +503,21 @@ class _GameScreenState extends State<GameScreen> {
     final answer = question?.answer ?? '';
     final answerChars = answer.characters.toList();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
           child: Card(
             key: ValueKey(question?.question),
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withOpacity(0.4),
             margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(28),
               child: Text(
                 question?.question ?? '',
-                style: const TextStyle(fontSize: 20, height: 1.4),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, height: 1.45),
               ),
             ),
           ),
@@ -521,8 +525,8 @@ class _GameScreenState extends State<GameScreen> {
         const SizedBox(height: 20),
         Wrap(
           alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 12,
+          spacing: 10,
+          runSpacing: 14,
           children: List.generate(answerChars.length, (index) {
             final char = answerChars[index];
             if (char == ' ') {
@@ -533,6 +537,16 @@ class _GameScreenState extends State<GameScreen> {
           }),
         ),
       ],
+    );
+  }
+
+  Widget _buildConstrained(Widget child) {
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
+        child: child,
+      ),
     );
   }
 
