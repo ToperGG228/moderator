@@ -382,9 +382,9 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
 
-    final wideConstraints = BoxConstraints.tightFor(
-      width: viewportConstraints.maxWidth,
-      height: minHeight,
+    final wideConstraints = BoxConstraints(
+      maxWidth: viewportConstraints.maxWidth,
+      maxHeight: minHeight,
     );
 
     return Padding(
@@ -412,15 +412,18 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildWideLayout(BoxConstraints constraints) {
     final engine = _engine;
     final totalWidth = constraints.maxWidth;
-    final wheelColumnWidth = (totalWidth * 0.38).clamp(320.0, 480.0);
-    const double teamColumnWidth = 312;
-    final minHeight = constraints.maxHeight.isFinite
+    final wheelColumnWidth = (totalWidth * 0.4).clamp(360.0, totalWidth).toDouble();
+    const double teamColumnWidth = 320;
+    final maxHeight = constraints.maxHeight.isFinite
         ? constraints.maxHeight
         : MediaQuery.of(context).size.height;
     return ConstrainedBox(
-      constraints: BoxConstraints.tightFor(height: minHeight),
+      constraints: BoxConstraints(
+        maxHeight: maxHeight,
+        maxWidth: totalWidth,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: wheelColumnWidth,
@@ -431,7 +434,10 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 28),
           Expanded(
-            child: _buildCentralPanel(expand: true),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: _buildCentralPanel(),
+            ),
           ),
           const SizedBox(width: 28),
           if (engine != null)
@@ -444,9 +450,9 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildCentralPanel({bool expand = false}) {
-    final panel = Container(
-      padding: const EdgeInsets.all(28),
+  Widget _buildCentralPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.35),
         borderRadius: BorderRadius.circular(32),
@@ -461,27 +467,23 @@ class _GameScreenState extends State<GameScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildQuestionBlock(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _buildKeyboardCard(),
         ],
-      ),
-    );
-
-    if (!expand) {
-      return panel;
-    }
-
-    return SizedBox.expand(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: panel,
       ),
     );
   }
 
   Widget _buildWheelAndButton() {
     final maxWidth = MediaQuery.of(context).size.width;
-    final wheelSize = max(260.0, min(maxWidth * 0.4, 420.0));
+    final isWide = maxWidth >= 1100;
+    double wheelSize;
+    if (isWide) {
+      final baseDiameter = maxWidth * 0.42;
+      wheelSize = baseDiameter.clamp(480.0, 780.0).toDouble();
+    } else {
+      wheelSize = max(240.0, min(maxWidth * 0.6, 420.0));
+    }
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -539,7 +541,7 @@ class _GameScreenState extends State<GameScreen> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: LetterKeyboard(
           usedLetters: _engine?.usedLetters ?? <String>{},
           onLetterPressed: _onLetterPressed,

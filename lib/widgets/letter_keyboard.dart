@@ -29,11 +29,11 @@ class LetterKeyboard extends StatelessWidget {
         final maxWidth = constraints.maxWidth;
         double tileSize;
         if (maxWidth < 360) {
-          tileSize = 26;
+          tileSize = 22;
         } else if (maxWidth < 520) {
-          tileSize = 30;
+          tileSize = 26;
         } else {
-          tileSize = 34;
+          tileSize = 30;
         }
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -43,7 +43,7 @@ class LetterKeyboard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 4,
+                    spacing: 3,
                     runSpacing: 4,
                     children: row
                         .map(
