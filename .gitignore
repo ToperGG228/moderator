@@ -1,0 +1,2 @@
+# Ignore user-provided GIF animations
+assets/gifs/*.gif
