@@ -41,7 +41,6 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  static const double _contentMaxWidth = 940;
   final StreamController<int> _fortuneController = StreamController<int>.broadcast();
   late final List<WheelSector> _sectors;
   GameEngine? _engine;
@@ -369,43 +368,25 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildContent(bool isWide) {
+    final body = isWide ? _buildWideLayout() : _buildNarrowLayout();
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _buildConstrained(_buildQuestionBlock()),
-          const SizedBox(height: 24),
-          _buildConstrained(
-            Card(
-              color: Colors.black.withOpacity(0.35),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                child: LetterKeyboard(
-                  usedLetters: _engine?.usedLetters ?? <String>{},
-                  onLetterPressed: _onLetterPressed,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (isWide)
-            _buildWideLayout()
-          else
-            _buildNarrowLayout(),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: body,
     );
   }
 
   Widget _buildNarrowLayout() {
     final engine = _engine;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildConstrained(_buildWheelAndButton()),
-        const SizedBox(height: 24),
-        if (engine != null) _buildConstrained(_buildTeamColumn(engine)),
+        _buildQuestionBlock(),
+        const SizedBox(height: 20),
+        _buildKeyboardCard(),
+        const SizedBox(height: 28),
+        _buildWheelAndButton(),
+        const SizedBox(height: 28),
+        if (engine != null) _buildTeamColumn(engine),
       ],
     );
   }
@@ -415,8 +396,25 @@ class _GameScreenState extends State<GameScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildWheelAndButton()),
-        const SizedBox(width: 24),
+        Expanded(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: _buildWheelAndButton(),
+          ),
+        ),
+        const SizedBox(width: 32),
+        Expanded(
+          flex: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildQuestionBlock(),
+              const SizedBox(height: 20),
+              _buildKeyboardCard(),
+            ],
+          ),
+        ),
+        const SizedBox(width: 32),
         if (engine != null)
           SizedBox(
             width: 320,
@@ -427,42 +425,71 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildWheelAndButton() {
-    final wheelSize = min(MediaQuery.of(context).size.width * 0.7, 420.0);
-    return Column(
-      children: [
-        WheelWidget(
-          sectors: _sectors,
-          stream: _fortuneController.stream,
-          size: wheelSize,
-          isSpinning: _isSpinning,
-          onAnimationEnd: _onWheelAnimationEnd,
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: 220,
-          height: 56,
-          child: FilledButton(
-            onPressed: _isSpinning ? null : _handleSpin,
-            child: Text(_isSpinning ? 'Вращаем…' : 'Крутить'),
+    final maxWidth = MediaQuery.of(context).size.width;
+    final wheelSize = max(260.0, min(maxWidth * 0.4, 420.0));
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 30, offset: Offset(0, 20)),
+        ],
+      ),
+      child: Column(
+        children: [
+          WheelWidget(
+            sectors: _sectors,
+            stream: _fortuneController.stream,
+            size: wheelSize,
+            isSpinning: _isSpinning,
+            onAnimationEnd: _onWheelAnimationEnd,
           ),
-        ),
-        if (_lastSector != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Последний сектор: ${_lastSector!.label}',
-              style: const TextStyle(color: Colors.white70),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: _isSpinning ? null : _handleSpin,
+              child: Text(_isSpinning ? 'Вращаем…' : 'Крутить'),
             ),
           ),
-        if (_statusMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              _statusMessage!,
-              style: const TextStyle(color: Colors.white60),
+          if (_lastSector != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Последний сектор: ${_lastSector!.label}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
             ),
-          ),
-      ],
+          if (_statusMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _statusMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white60),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyboardCard() {
+    return Card(
+      color: Colors.black.withOpacity(0.35),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: LetterKeyboard(
+          usedLetters: _engine?.usedLetters ?? <String>{},
+          onLetterPressed: _onLetterPressed,
+        ),
+      ),
     );
   }
 
@@ -537,16 +564,6 @@ class _GameScreenState extends State<GameScreen> {
           }),
         ),
       ],
-    );
-  }
-
-  Widget _buildConstrained(Widget child) {
-    return Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
-        child: child,
-      ),
     );
   }
 

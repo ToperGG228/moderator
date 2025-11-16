@@ -34,59 +34,85 @@ class TeamPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.groups, color: isActive ? Colors.amberAccent : Colors.white70),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  team.name,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-              Text(
-                team.score.toString(),
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: isActive ? Colors.amberAccent : Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           GestureDetector(
             onTap: onGifTap,
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xAA1E1E2C), Color(0x552A2A40)],
+            child: Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white24),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xAA1E1E2C), Color(0x552A2A40)],
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: team.gifAsset == null
+                  ? Center(
+                      child: Text(
+                        'GIF',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : Image.asset(
+                      team.gifAsset!,
+                      fit: BoxFit.cover,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.groups, color: isActive ? Colors.amberAccent : Colors.white70),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        team.name,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white.withOpacity(0.08),
+                    border: Border.all(
+                      color: isActive ? Colors.amberAccent : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Очки',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      Text(
+                        team.score.toString(),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.amberAccent : Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: team.gifAsset == null
-                    ? Center(
-                        child: Text(
-                          'Выбрать GIF',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
-                    : Image.asset(
-                        team.gifAsset!,
-                        fit: BoxFit.cover,
-                      ),
-              ),
+              ],
             ),
           ),
         ],
