@@ -423,7 +423,7 @@ class _GameScreenState extends State<GameScreen> {
         maxWidth: totalWidth,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
             width: wheelColumnWidth,
@@ -432,16 +432,17 @@ class _GameScreenState extends State<GameScreen> {
               child: _buildWheelAndButton(),
             ),
           ),
-          const SizedBox(width: 28),
           Expanded(
             flex: 2,
             child: _buildCentralPanel(expandVertically: true),
           ),
-          const SizedBox(width: 28),
           if (engine != null)
             SizedBox(
               width: teamColumnWidth,
-              child: Center(child: _buildTeamColumn(engine)),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _buildTeamColumn(engine),
+              ),
             ),
         ],
       ),
@@ -449,11 +450,18 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildCentralPanel({bool expandVertically = false}) {
-    final keyboard = expandVertically
-        ? Expanded(child: _buildKeyboardCard(dense: true))
-        : _buildKeyboardCard(dense: true);
+    final children = <Widget>[
+      _buildQuestionBlock(),
+      const SizedBox(height: 24),
+      Center(child: _buildAlphabetPanel()),
+      const SizedBox(height: 24),
+    ];
+    if (expandVertically) {
+      children.add(const Expanded(child: SizedBox.expand()));
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: expandVertically ? const EdgeInsets.symmetric(horizontal: 24) : EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.35),
         borderRadius: BorderRadius.circular(32),
@@ -464,14 +472,17 @@ class _GameScreenState extends State<GameScreen> {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: expandVertically ? MainAxisSize.max : MainAxisSize.min,
-        children: [
-          _buildQuestionBlock(),
-          const SizedBox(height: 12),
-          keyboard,
-        ],
+        children: children,
       ),
+    );
+  }
+
+  Widget _buildAlphabetPanel() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: _buildKeyboardCard(dense: true),
     );
   }
 
@@ -542,7 +553,7 @@ class _GameScreenState extends State<GameScreen> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
-        padding: dense ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8) : const EdgeInsets.all(16),
+        padding: dense ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6) : const EdgeInsets.all(16),
         child: LetterKeyboard(
           usedLetters: _engine?.usedLetters ?? <String>{},
           onLetterPressed: _onLetterPressed,

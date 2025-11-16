@@ -29,9 +29,9 @@ class LetterKeyboard extends StatelessWidget {
         final maxWidth = constraints.maxWidth;
         double tileSize;
         if (maxWidth < 360) {
-          tileSize = 40;
+          tileSize = 38;
         } else if (maxWidth < 520) {
-          tileSize = 43;
+          tileSize = 42;
         } else {
           tileSize = 45;
         }
@@ -43,8 +43,8 @@ class LetterKeyboard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 2,
-                    runSpacing: 3,
+                    spacing: 4,
+                    runSpacing: 4,
                     children: row
                         .map(
                           (letter) => _LetterButton(
@@ -96,13 +96,15 @@ class _LetterButton extends StatelessWidget {
             padding: EdgeInsets.zero,
           ),
           onPressed: onTap,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              letter,
-              style: TextStyle(
-                fontSize: size * 0.38,
-                fontWeight: FontWeight.bold,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                letter,
+                style: TextStyle(
+                  fontSize: size * 0.38,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
