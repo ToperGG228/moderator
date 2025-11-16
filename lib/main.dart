@@ -368,16 +368,28 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildContent(bool isWide, BoxConstraints viewportConstraints) {
-    final body = isWide ? _buildWideLayout(viewportConstraints) : _buildNarrowLayout();
     final minHeight = viewportConstraints.maxHeight.isFinite
         ? viewportConstraints.maxHeight
         : MediaQuery.of(context).size.height;
-    return SingleChildScrollView(
+
+    if (!isWide) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: minHeight),
+          child: _buildNarrowLayout(),
+        ),
+      );
+    }
+
+    final wideConstraints = BoxConstraints.tightFor(
+      width: viewportConstraints.maxWidth,
+      height: minHeight,
+    );
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: minHeight),
-        child: body,
-      ),
+      child: _buildWideLayout(wideConstraints),
     );
   }
 
@@ -406,7 +418,7 @@ class _GameScreenState extends State<GameScreen> {
         ? constraints.maxHeight
         : MediaQuery.of(context).size.height;
     return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minHeight),
+      constraints: BoxConstraints.tightFor(height: minHeight),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
