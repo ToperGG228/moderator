@@ -400,7 +400,7 @@ class _GameScreenState extends State<GameScreen> {
       children: [
         _buildQuestionBlock(),
         const SizedBox(height: 20),
-        _buildKeyboardCard(),
+        _buildKeyboardCard(dense: true),
         const SizedBox(height: 28),
         _buildWheelAndButton(),
         const SizedBox(height: 28),
@@ -434,25 +434,26 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 28),
           Expanded(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: _buildCentralPanel(),
-            ),
+            flex: 2,
+            child: _buildCentralPanel(expandVertically: true),
           ),
           const SizedBox(width: 28),
           if (engine != null)
             SizedBox(
               width: teamColumnWidth,
-              child: _buildTeamColumn(engine),
+              child: Center(child: _buildTeamColumn(engine)),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildCentralPanel() {
+  Widget _buildCentralPanel({bool expandVertically = false}) {
+    final keyboard = expandVertically
+        ? Expanded(child: _buildKeyboardCard(dense: true))
+        : _buildKeyboardCard(dense: true);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.35),
         borderRadius: BorderRadius.circular(32),
@@ -462,13 +463,13 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: expandVertically ? MainAxisSize.max : MainAxisSize.min,
         children: [
           _buildQuestionBlock(),
-          const SizedBox(height: 16),
-          _buildKeyboardCard(),
+          const SizedBox(height: 12),
+          keyboard,
         ],
       ),
     );
@@ -535,13 +536,13 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildKeyboardCard() {
+  Widget _buildKeyboardCard({bool dense = false}) {
     return Card(
       color: Colors.black.withOpacity(0.35),
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: dense ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8) : const EdgeInsets.all(16),
         child: LetterKeyboard(
           usedLetters: _engine?.usedLetters ?? <String>{},
           onLetterPressed: _onLetterPressed,

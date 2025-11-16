@@ -29,22 +29,22 @@ class LetterKeyboard extends StatelessWidget {
         final maxWidth = constraints.maxWidth;
         double tileSize;
         if (maxWidth < 360) {
-          tileSize = 22;
+          tileSize = 40;
         } else if (maxWidth < 520) {
-          tileSize = 26;
+          tileSize = 43;
         } else {
-          tileSize = 30;
+          tileSize = 45;
         }
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: rows
               .map(
                 (row) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 3,
-                    runSpacing: 4,
+                    spacing: 2,
+                    runSpacing: 3,
                     children: row
                         .map(
                           (letter) => _LetterButton(
@@ -82,22 +82,29 @@ class _LetterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: 48,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          elevation: isUsed ? 0 : 3,
-          backgroundColor: isUsed ? Colors.grey.shade700 : Colors.blueGrey.shade700,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        onPressed: onTap,
-        child: Text(
-          letter,
-          style: TextStyle(
-            fontSize: size * 0.38,
-            fontWeight: FontWeight.bold,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            elevation: isUsed ? 0 : 3,
+            backgroundColor: isUsed ? Colors.grey.shade700 : Colors.blueGrey.shade700,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: EdgeInsets.zero,
+          ),
+          onPressed: onTap,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              letter,
+              style: TextStyle(
+                fontSize: size * 0.38,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ),
