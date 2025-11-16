@@ -353,7 +353,7 @@ class _GameScreenState extends State<GameScreen> {
                   : LayoutBuilder(
                       builder: (context, constraints) {
                         final isWide = constraints.maxWidth >= 1100;
-                        final content = _buildContent(isWide);
+                        final content = _buildContent(isWide, constraints);
                         return AnimatedSwitcher(
                           duration: const Duration(milliseconds: 400),
                           child: content,
@@ -367,11 +367,17 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildContent(bool isWide) {
-    final body = isWide ? _buildWideLayout() : _buildNarrowLayout();
+  Widget _buildContent(bool isWide, BoxConstraints viewportConstraints) {
+    final body = isWide ? _buildWideLayout(viewportConstraints) : _buildNarrowLayout();
+    final minHeight = viewportConstraints.maxHeight.isFinite
+        ? viewportConstraints.maxHeight
+        : MediaQuery.of(context).size.height;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: body,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
+        child: body,
+      ),
     );
   }
 
@@ -391,36 +397,58 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildWideLayout() {
+  Widget _buildWideLayout(BoxConstraints constraints) {
     final engine = _engine;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: _buildWheelAndButton(),
-          ),
-        ),
-        const SizedBox(width: 32),
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildQuestionBlock(),
-              const SizedBox(height: 20),
-              _buildKeyboardCard(),
-            ],
-          ),
-        ),
-        const SizedBox(width: 32),
-        if (engine != null)
+    final totalWidth = constraints.maxWidth;
+    final wheelColumnWidth = (totalWidth * 0.38).clamp(320.0, 460.0);
+    const double teamColumnWidth = 312;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           SizedBox(
-            width: 320,
-            child: _buildTeamColumn(engine),
+            width: wheelColumnWidth,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: _buildWheelAndButton(),
+            ),
           ),
-      ],
+          const SizedBox(width: 28),
+          Expanded(
+            child: _buildCentralPanel(),
+          ),
+          const SizedBox(width: 28),
+          if (engine != null)
+            SizedBox(
+              width: teamColumnWidth,
+              child: _buildTeamColumn(engine),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCentralPanel() {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: Colors.white12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 30, offset: Offset(0, 20)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          _buildQuestionBlock(),
+          const SizedBox(height: 24),
+          _buildKeyboardCard(),
+        ],
+      ),
     );
   }
 
