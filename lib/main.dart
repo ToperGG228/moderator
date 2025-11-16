@@ -683,7 +683,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildWheelSection({required double wheelSize}) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
@@ -699,17 +699,31 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: WheelWidget(
-              key: _wheelKey,
-              sectors: _sectors,
-              initialIndex: _initialWheelIndex,
-              onSpinComplete: (WheelSector sector) {
-                _onSectorComplete(sector);
-              },
-              size: wheelSize,
-            ),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double wheelVisualWidth = wheelSize + 160;
+              final Widget content = SizedBox(
+                width: wheelVisualWidth,
+                child: Center(
+                  child: WheelWidget(
+                    key: _wheelKey,
+                    sectors: _sectors,
+                    initialIndex: _initialWheelIndex,
+                    onSpinComplete: (WheelSector sector) {
+                      _onSectorComplete(sector);
+                    },
+                    size: wheelSize,
+                  ),
+                ),
+              );
+              if (wheelVisualWidth <= constraints.maxWidth) {
+                return content;
+              }
+              return FittedBox(
+                fit: BoxFit.contain,
+                child: content,
+              );
+            },
           ),
         ),
         const SizedBox(height: 20),
@@ -758,73 +772,45 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildWheelAndTeams({
-    required bool isWide,
-    required double maxWidth,
-  }) {
-    final double baseDiameter = maxWidth * (isWide ? 0.45 : 0.78);
-    final double minDiameter = isWide ? 560 : 300;
-    final double maxDiameter = isWide ? 760 : maxWidth - 176;
-    final double safeMaxDiameter = max(minDiameter, maxDiameter);
-    double targetWheelDiameter = baseDiameter;
-    if (targetWheelDiameter < minDiameter) {
-      targetWheelDiameter = minDiameter;
-    } else if (targetWheelDiameter > safeMaxDiameter) {
-      targetWheelDiameter = safeMaxDiameter;
-    }
-    final double wheelColumnWidth = targetWheelDiameter + 176;
-
-    Widget buildWheelBox() {
-      return SizedBox(
-        width: wheelColumnWidth,
-        child: _buildWheelSection(wheelSize: targetWheelDiameter),
-      );
-    }
-
-    final Widget wideWheel = Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: buildWheelBox(),
-      ),
+  Widget _buildLowerZone(BoxConstraints constraints) {
+    final double wheelSize = _resolveWheelDiameter(
+      maxWidth: constraints.maxWidth,
+      isWide: true,
     );
-
-    if (!isWide) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: wheelColumnWidth),
-                child: buildWheelBox(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildTeamColumn(),
-        ],
-      );
-    }
-
-    final Widget teams = SizedBox(
-      width: 270,
-      child: _buildTeamColumn(),
+    final double wheelAreaWidth = max(wheelSize + 200, constraints.maxWidth * 0.45);
+    final Widget wheelColumn = Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SizedBox(
+          width: wheelAreaWidth,
+          child: _buildWheelSection(wheelSize: wheelSize),
+        ),
+      ),
     );
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12).copyWith(bottom: 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Expanded(flex: 5, child: wideWheel),
-          const SizedBox(width: 36),
-          teams,
+          Expanded(child: wheelColumn),
+          const SizedBox(width: 40),
+          SizedBox(
+            width: 270,
+            child: _buildTeamColumn(),
+          ),
         ],
       ),
     );
+  }
+
+  double _resolveWheelDiameter({required double maxWidth, required bool isWide}) {
+    final double minSize = isWide ? 520 : 320;
+    final double maxSize = isWide ? 720 : max(maxWidth - 60, minSize);
+    final double base = isWide ? maxWidth * 0.48 : maxWidth * 0.78;
+    final double clamped = base.clamp(minSize, maxSize);
+    return clamped.toDouble();
   }
 
   @override
@@ -840,7 +826,7 @@ class _GameScreenState extends State<GameScreen> {
                 final bool isWide = constraints.maxWidth >= 1100;
                 final Widget keyboard = Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
+                    constraints: const BoxConstraints(maxWidth: 440),
                     child: LetterKeyboard(
                       letters: _letters,
                       disabledLetters: _engine.usedLetters,
@@ -851,39 +837,47 @@ class _GameScreenState extends State<GameScreen> {
                 );
 
                 if (!isWide) {
+                  final double mobileWheelSize = _resolveWheelDiameter(
+                    maxWidth: constraints.maxWidth,
+                    isWide: false,
+                  );
                   return SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                    const SizedBox(height: 24),
-                    _buildQuestionBlock(),
-                    const SizedBox(height: 64),
-                    keyboard,
-                    const SizedBox(height: 60),
-                    _buildWheelAndTeams(
-                      isWide: false,
-                      maxWidth: constraints.maxWidth,
+                        const SizedBox(height: 24),
+                        _buildQuestionBlock(),
+                        const SizedBox(height: 36),
+                        keyboard,
+                        const SizedBox(height: 40),
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 520),
+                            child: _buildWheelSection(wheelSize: mobileWheelSize),
+                          ),
                         ),
+                        const SizedBox(height: 36),
+                        _buildTeamColumn(),
+                        const SizedBox(height: 36),
                       ],
                     ),
                   );
                 }
 
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     _buildQuestionBlock(),
-                    const SizedBox(height: 70),
+                    const SizedBox(height: 40),
                     keyboard,
                     const SizedBox(height: 60),
                     Expanded(
-                      child: _buildWheelAndTeams(
-                          isWide: true,
-                          maxWidth: constraints.maxWidth,
-                        ),
-                      ),
+                      child: _buildLowerZone(constraints),
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 );
               },

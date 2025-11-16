@@ -22,16 +22,16 @@ class LetterKeyboard extends StatelessWidget {
         final double maxWidth = constraints.maxWidth;
         final double tileSize;
         if (maxWidth < 360) {
-          tileSize = 36;
+          tileSize = 34;
         } else if (maxWidth < 520) {
-          tileSize = 42;
+          tileSize = 38;
         } else {
-          tileSize = 46;
+          tileSize = 42;
         }
         return Wrap(
           alignment: WrapAlignment.center,
-          spacing: 5,
-          runSpacing: 5,
+          spacing: 6,
+          runSpacing: 6,
           children: letters.map((String letter) {
             final bool isDisabled = disabledLetters.contains(letter) || !isEnabled;
             return _LetterTile(
