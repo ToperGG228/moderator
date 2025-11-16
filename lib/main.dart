@@ -400,9 +400,13 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildWideLayout(BoxConstraints constraints) {
     final engine = _engine;
     final totalWidth = constraints.maxWidth;
-    final wheelColumnWidth = (totalWidth * 0.38).clamp(320.0, 460.0);
+    final wheelColumnWidth = (totalWidth * 0.38).clamp(320.0, 480.0);
     const double teamColumnWidth = 312;
-    return IntrinsicHeight(
+    final minHeight = constraints.maxHeight.isFinite
+        ? constraints.maxHeight
+        : MediaQuery.of(context).size.height;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -415,7 +419,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 28),
           Expanded(
-            child: _buildCentralPanel(),
+            child: _buildCentralPanel(expand: true),
           ),
           const SizedBox(width: 28),
           if (engine != null)
@@ -428,8 +432,8 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildCentralPanel() {
-    return Container(
+  Widget _buildCentralPanel({bool expand = false}) {
+    final panel = Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.35),
@@ -442,12 +446,23 @@ class _GameScreenState extends State<GameScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildQuestionBlock(),
           const SizedBox(height: 24),
           _buildKeyboardCard(),
         ],
+      ),
+    );
+
+    if (!expand) {
+      return panel;
+    }
+
+    return SizedBox.expand(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: panel,
       ),
     );
   }
