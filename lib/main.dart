@@ -782,9 +782,9 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final Widget wideWheel = Align(
-      alignment: Alignment.topLeft,
+      alignment: Alignment.centerLeft,
       child: Padding(
-        padding: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.only(top: 4),
         child: buildWheelBox(),
       ),
     );
@@ -856,14 +856,14 @@ class _GameScreenState extends State<GameScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        const SizedBox(height: 24),
-                        _buildQuestionBlock(),
-                        const SizedBox(height: 40),
-                        keyboard,
-                        const SizedBox(height: 60),
-                        _buildWheelAndTeams(
-                          isWide: false,
-                          maxWidth: constraints.maxWidth,
+                    const SizedBox(height: 24),
+                    _buildQuestionBlock(),
+                    const SizedBox(height: 64),
+                    keyboard,
+                    const SizedBox(height: 60),
+                    _buildWheelAndTeams(
+                      isWide: false,
+                      maxWidth: constraints.maxWidth,
                         ),
                       ],
                     ),
@@ -875,11 +875,11 @@ class _GameScreenState extends State<GameScreen> {
                   children: <Widget>[
                     const SizedBox(height: 32),
                     _buildQuestionBlock(),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 70),
                     keyboard,
                     const SizedBox(height: 60),
-                      Expanded(
-                        child: _buildWheelAndTeams(
+                    Expanded(
+                      child: _buildWheelAndTeams(
                           isWide: true,
                           maxWidth: constraints.maxWidth,
                         ),
