@@ -433,8 +433,20 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
           Expanded(
-            flex: 2,
-            child: _buildCentralPanel(expandVertically: true),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildQuestionBlock(),
+                    const SizedBox(height: 40),
+                    _buildAlphabetPanel(),
+                  ],
+                ),
+              ),
+            ),
           ),
           if (engine != null)
             SizedBox(
@@ -445,26 +457,6 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCentralPanel({bool expandVertically = false}) {
-    final children = <Widget>[
-      _buildQuestionBlock(),
-      const SizedBox(height: 32),
-      Center(child: _buildAlphabetPanel()),
-      if (expandVertically) ...[
-        const SizedBox(height: 24),
-        const Expanded(child: SizedBox.expand()),
-      ],
-    ];
-    return Padding(
-      padding: expandVertically ? const EdgeInsets.symmetric(horizontal: 24) : EdgeInsets.zero,
-      child: Column(
-        mainAxisSize: expandVertically ? MainAxisSize.max : MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
       ),
     );
   }
@@ -608,7 +600,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 40),
         Wrap(
           alignment: WrapAlignment.center,
           spacing: 10,
