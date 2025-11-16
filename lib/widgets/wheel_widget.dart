@@ -31,6 +31,7 @@ class _WheelWidgetState extends State<WheelWidget>
   late Animation<double> _animation;
   StreamSubscription<int>? _subscription;
   double _rotation = 0;
+  final math.Random _random = math.Random();
 
   @override
   void initState() {
@@ -71,7 +72,9 @@ class _WheelWidgetState extends State<WheelWidget>
     double currentMod = currentRotation % twoPi;
     if (currentMod < 0) currentMod += twoPi;
 
-    double targetMod = (-index * sectorAngle) % twoPi;
+    double targetMod = (-index * sectorAngle) - (sectorAngle / 2);
+    final double jitter = (_random.nextDouble() - 0.5) * (sectorAngle * 0.3);
+    targetMod = (targetMod + jitter) % twoPi;
     if (targetMod < 0) targetMod += twoPi;
 
     double delta = targetMod - currentMod;
@@ -339,17 +342,19 @@ class _WheelPainter extends CustomPainter {
   }
 
   void _drawArrow(Canvas canvas, Offset center, double radius) {
+    final double tipY = center.dy - radius * 0.85;
+    final double baseY = center.dy - radius * 1.05;
     final Path arrowPath = Path()
-      ..moveTo(center.dx, center.dy - radius * 1.05)
-      ..lineTo(center.dx - 18, center.dy - radius * 0.85)
-      ..lineTo(center.dx + 18, center.dy - radius * 0.85)
+      ..moveTo(center.dx, tipY)
+      ..lineTo(center.dx - 18, baseY)
+      ..lineTo(center.dx + 18, baseY)
       ..close();
 
-    final Rect arrowRect = Rect.fromLTWH(
+    final Rect arrowRect = Rect.fromLTRB(
       center.dx - 20,
-      center.dy - radius * 1.1,
-      40,
-      radius * 0.3,
+      baseY,
+      center.dx + 20,
+      tipY,
     );
 
     final Paint arrowPaint = Paint()
