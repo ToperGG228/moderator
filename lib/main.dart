@@ -452,28 +452,18 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildCentralPanel({bool expandVertically = false}) {
     final children = <Widget>[
       _buildQuestionBlock(),
-      const SizedBox(height: 24),
+      const SizedBox(height: 32),
       Center(child: _buildAlphabetPanel()),
-      const SizedBox(height: 24),
+      if (expandVertically) ...[
+        const SizedBox(height: 24),
+        const Expanded(child: SizedBox.expand()),
+      ],
     ];
-    if (expandVertically) {
-      children.add(const Expanded(child: SizedBox.expand()));
-    }
-    return Container(
-      margin: expandVertically ? const EdgeInsets.symmetric(horizontal: 24) : EdgeInsets.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 30, offset: Offset(0, 20)),
-        ],
-      ),
+    return Padding(
+      padding: expandVertically ? const EdgeInsets.symmetric(horizontal: 24) : EdgeInsets.zero,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: expandVertically ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
       ),
     );
