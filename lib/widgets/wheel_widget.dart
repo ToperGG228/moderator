@@ -265,7 +265,17 @@ class _WheelPainter extends CustomPainter {
 
       canvas.drawPath(path, fill);
       canvas.drawPath(path, borderPaint);
-      _drawSectorText(canvas, center, sectorRadius, start, sweep, sectors[i]);
+      canvas.save();
+      canvas.clipPath(path);
+      _drawSectorText(
+        canvas,
+        center,
+        sectorRadius,
+        start,
+        sweep,
+        sectors[i],
+      );
+      canvas.restore();
     }
   }
 
@@ -282,7 +292,7 @@ class _WheelPainter extends CustomPainter {
       text: TextSpan(
         text: sector.label,
         style: const TextStyle(
-          color: Colors.white,
+          color: Colors.black,
           fontWeight: FontWeight.w700,
           fontSize: 16,
         ),
@@ -300,6 +310,20 @@ class _WheelPainter extends CustomPainter {
     canvas.save();
     canvas.translate(pivot.dx, pivot.dy);
     canvas.rotate(midAngle + math.pi / 2);
+    final double padding = 6;
+    final Rect textRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: painter.width + padding * 2,
+      height: painter.height + padding * 2,
+    );
+    final RRect frame = RRect.fromRectAndRadius(textRect, const Radius.circular(8));
+    final Paint frameFill = Paint()..color = Colors.white.withOpacity(0.92);
+    final Paint frameBorder = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = Colors.black.withOpacity(0.75);
+    canvas.drawRRect(frame, frameFill);
+    canvas.drawRRect(frame, frameBorder);
     painter.paint(
       canvas,
       Offset(-painter.width / 2, -painter.height / 2),
