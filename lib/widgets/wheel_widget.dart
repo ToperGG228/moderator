@@ -289,16 +289,17 @@ class _WheelPainter extends CustomPainter {
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: radius * 0.6);
+    )..layout(maxWidth: radius * 0.5);
 
-    final Offset textCenter = center + Offset(
-      math.cos(midAngle) * (radius * 0.6),
-      math.sin(midAngle) * (radius * 0.6),
+    final double textRadius = radius * 0.88;
+    final Offset pivot = center + Offset(
+      math.cos(midAngle) * textRadius,
+      math.sin(midAngle) * textRadius,
     );
 
     canvas.save();
-    canvas.translate(textCenter.dx, textCenter.dy);
-    canvas.rotate(midAngle - math.pi / 2);
+    canvas.translate(pivot.dx, pivot.dy);
+    canvas.rotate(midAngle + math.pi / 2);
     painter.paint(
       canvas,
       Offset(-painter.width / 2, -painter.height / 2),
