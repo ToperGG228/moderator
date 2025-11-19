@@ -357,6 +357,10 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  void _stopSpinSound() {
+    SoundManager().stopWheelSpin();
+  }
+
   Future<void> _openAdminPanel() async {
     final engine = _engine;
     await showDialog<void>(
@@ -506,6 +510,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: null,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -880,9 +885,17 @@ class _MenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        final RenderBox button = context.findRenderObject()! as RenderBox;
+        final RenderBox overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+        final Offset offset = button.localToGlobal(Offset.zero, ancestor: overlay);
+        final RelativeRect position = RelativeRect.fromRect(
+          Rect.fromLTWH(offset.dx, offset.dy, button.size.width, button.size.height),
+          Offset.zero & overlay.size,
+        );
+
         showMenu<String>(
           context: context,
-          position: const RelativeRect.fromLTRB(1000, 0, 16, 100),
+          position: position,
           items: const [
             PopupMenuItem(value: 'admin', child: Text('Admin')),
             PopupMenuItem(value: 'settings', child: Text('Настройки')),
