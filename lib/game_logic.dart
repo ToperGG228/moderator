@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:characters/characters.dart';
 import 'package:flutter/services.dart';
@@ -10,8 +11,8 @@ class GameEngine {
     required List<GameQuestion> questions,
     required List<GameQuestion> mysteryQuestions,
     int teamCount = 3,
-  })  : questions = questions,
-        _mysteryBag = MysteryQuestionBag(mysteryQuestions),
+  })  : questions = List<GameQuestion>.from(questions),
+        _mysteryBag = MysteryQuestionBag(List<GameQuestion>.from(mysteryQuestions)),
         teams = List.generate(teamCount, (index) => TeamState(name: 'Команда ${index + 1}')) {
     _initQuestion();
   }
@@ -35,6 +36,9 @@ class GameEngine {
 
   List<bool> get revealedLetters => List<bool>.unmodifiable(_revealed);
 
+  int get regularQuestionCount => questions.length;
+  int get mysteryQuestionCount => _mysteryBag.length;
+
   void _initQuestion() {
     usedLetters.clear();
     final current = currentQuestion;
@@ -46,6 +50,20 @@ class GameEngine {
     _revealed = current.answer.characters
         .map((char) => char == ' ')
         .toList();
+  }
+
+  void replaceQuestions({required List<GameQuestion> regular, required List<GameQuestion> mystery}) {
+    questions
+      ..clear()
+      ..addAll(regular);
+    _mysteryBag.replaceQuestions(mystery);
+    _currentQuestionIndex = 0;
+    activeTeamIndex = 0;
+    isGameOver = false;
+    for (final team in teams) {
+      team.score = 0;
+    }
+    _initQuestion();
   }
 
   void reset() {
@@ -127,5 +145,44 @@ class QuestionLoader {
               answer: (item['answer'] as String).toUpperCase(),
             ))
         .toList();
+  }
+
+  static Future<QuestionImportResult> loadFromFile(String path) async {
+    final file = File(path);
+    final content = await file.readAsString();
+    final List<dynamic> data = jsonDecode(content) as List<dynamic>;
+    return QuestionImportResult.fromJsonList(data);
+  }
+
+  static QuestionImportResult parseCombinedJson(String content) {
+    final List<dynamic> data = jsonDecode(content) as List<dynamic>;
+    return QuestionImportResult.fromJsonList(data);
+  }
+}
+
+class QuestionImportResult {
+  QuestionImportResult({required this.regular, required this.mystery});
+
+  final List<GameQuestion> regular;
+  final List<GameQuestion> mystery;
+
+  factory QuestionImportResult.fromJsonList(List<dynamic> data) {
+    final regular = <GameQuestion>[];
+    final mystery = <GameQuestion>[];
+    for (final item in data) {
+      if (item is Map<String, dynamic>) {
+        final question = item['question'] as String?;
+        final answer = item['answer'] as String?;
+        final isMystery = item['isMystery'] as bool? ?? false;
+        if (question == null || answer == null) continue;
+        final model = GameQuestion(question: question, answer: answer.toUpperCase());
+        if (isMystery) {
+          mystery.add(model);
+        } else {
+          regular.add(model);
+        }
+      }
+    }
+    return QuestionImportResult(regular: regular, mystery: mystery);
   }
 }

@@ -43,6 +43,8 @@ class MysteryQuestionBag {
   final Random _random;
   final Set<int> _used;
 
+  int get length => _questions.length;
+
   GameQuestion? draw() {
     if (_questions.isEmpty) {
       return null;
@@ -56,5 +58,12 @@ class MysteryQuestionBag {
     } while (_used.contains(index));
     _used.add(index);
     return _questions[index];
+  }
+
+  void replaceQuestions(List<GameQuestion> questions) {
+    _questions
+      ..clear()
+      ..addAll(questions);
+    _used.clear();
   }
 }

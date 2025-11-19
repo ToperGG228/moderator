@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:characters/characters.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'game_logic.dart';
@@ -10,6 +12,7 @@ import 'models.dart';
 import 'widgets/letter_keyboard.dart';
 import 'widgets/team_panel.dart';
 import 'widgets/wheel_widget.dart';
+import 'widgets/wheel_smoke_effect.dart';
 
 void main() {
   runApp(const WheelGameApp());
@@ -52,6 +55,12 @@ class _GameScreenState extends State<GameScreen> {
   int _pendingSectorIndex = 0;
   List<String> _gifOptions = const [];
   String? _statusMessage;
+  late final AudioPlayer _spinPlayer = AudioPlayer();
+  late final AudioPlayer _stopPlayer = AudioPlayer();
+  bool _soundEnabled = true;
+  bool _smokeEnabled = true;
+  List<GameQuestion> _defaultQuestions = const [];
+  List<GameQuestion> _defaultMystery = const [];
 
   @override
   void initState() {
@@ -63,6 +72,8 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _fortuneController.close();
+    _spinPlayer.dispose();
+    _stopPlayer.dispose();
     super.dispose();
   }
 
@@ -71,6 +82,8 @@ class _GameScreenState extends State<GameScreen> {
     final mystery = await QuestionLoader.loadFromAsset('assets/mystery_questions.json');
     final catalog = await GifAssetCatalog.load();
     setState(() {
+      _defaultQuestions = List<GameQuestion>.from(questions);
+      _defaultMystery = List<GameQuestion>.from(mystery);
       _gifOptions = catalog.items;
       _engine = GameEngine(questions: questions, mysteryQuestions: mystery);
       _isLoading = false;
@@ -106,6 +119,7 @@ class _GameScreenState extends State<GameScreen> {
       _statusMessage = 'Колесо в пути...';
       _pointsPerLetter = 0;
     });
+    _startSpinSound();
     final random = Random().nextInt(_sectors.length);
     _pendingSectorIndex = random;
     _fortuneController.add(random);
@@ -114,11 +128,38 @@ class _GameScreenState extends State<GameScreen> {
   void _onWheelAnimationEnd() {
     if (!_isSpinning) return;
     final sector = _sectors[_pendingSectorIndex];
+    _stopSpinSound();
+    _playStopSound();
     setState(() {
       _isSpinning = false;
       _lastSector = sector;
     });
     _onSectorComplete(sector);
+  }
+
+  Future<void> _startSpinSound() async {
+    if (!_soundEnabled) return;
+    try {
+      await _spinPlayer.stop();
+      await _spinPlayer.setReleaseMode(ReleaseMode.loop);
+      await _spinPlayer.setSourceAsset('sounds/wheel_spin.mp3');
+      await _spinPlayer.resume();
+    } catch (_) {}
+  }
+
+  Future<void> _stopSpinSound() async {
+    try {
+      await _spinPlayer.stop();
+    } catch (_) {}
+  }
+
+  Future<void> _playStopSound() async {
+    if (!_soundEnabled) return;
+    try {
+      await _stopPlayer.stop();
+      await _stopPlayer.setSourceAsset('sounds/wheel_stop.mp3');
+      await _stopPlayer.resume();
+    } catch (_) {}
   }
 
   void _onSectorComplete(WheelSector sector) {
@@ -316,6 +357,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _resetGame() {
     _engine?.reset();
+    _stopSpinSound();
     setState(() {
       _isSpinning = false;
       _canGuessLetter = false;
@@ -331,9 +373,178 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Future<void> _openAdminPanel() async {
+    final engine = _engine;
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Админ-панель'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Обычных вопросов: ${engine?.regularQuestionCount ?? _defaultQuestions.length}'),
+              Text('Секретных вопросов: ${engine?.mysteryQuestionCount ?? _defaultMystery.length}'),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _importQuestionsFromFile();
+                },
+                icon: const Icon(Icons.file_open),
+                label: const Text('Импортировать вопросы (.json)'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _resetQuestionsToDefault();
+                },
+                icon: const Icon(Icons.restore),
+                label: const Text('Сбросить на дефолт'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Закрыть'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openSettingsDialog() async {
+    bool soundEnabled = _soundEnabled;
+    bool smokeEnabled = _smokeEnabled;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Настройки'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: const Text('Звук вращения колеса'),
+              value: soundEnabled,
+              onChanged: (value) {
+                soundEnabled = value;
+                setState(() {
+                  _soundEnabled = value;
+                });
+                if (!value) {
+                  _stopSpinSound();
+                }
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Визуальный эффект дыма'),
+              value: smokeEnabled,
+              onChanged: (value) {
+                smokeEnabled = value;
+                setState(() {
+                  _smokeEnabled = value;
+                });
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _importQuestionsFromFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+      );
+      if (result == null) return;
+      final path = result.files.single.path;
+      if (path == null) throw Exception('Файл не выбран.');
+      final parsed = await QuestionLoader.loadFromFile(path);
+      if (parsed.regular.isEmpty && parsed.mystery.isEmpty) {
+        _showSnack('Не удалось загрузить вопросы из файла.');
+        return;
+      }
+      if (_engine == null) {
+        setState(() {
+          _engine = GameEngine(
+            questions: parsed.regular,
+            mysteryQuestions: parsed.mystery,
+          );
+        });
+      } else {
+        _engine!.replaceQuestions(
+          regular: parsed.regular,
+          mystery: parsed.mystery,
+        );
+        setState(() {});
+      }
+      _showSnack('Вопросы обновлены: ${parsed.regular.length} обычных, ${parsed.mystery.length} секретных.');
+    } catch (e) {
+      _showSnack('Ошибка импорта: $e');
+    }
+  }
+
+  Future<void> _resetQuestionsToDefault() async {
+    if (_defaultQuestions.isEmpty && _defaultMystery.isEmpty) {
+      await _loadInitialData();
+      return;
+    }
+    if (_engine == null) {
+      setState(() {
+        _engine = GameEngine(
+          questions: _defaultQuestions,
+          mysteryQuestions: _defaultMystery,
+        );
+      });
+    } else {
+      _engine!.replaceQuestions(
+        regular: List<GameQuestion>.from(_defaultQuestions),
+        mystery: List<GameQuestion>.from(_defaultMystery),
+      );
+      setState(() {});
+    }
+    _showSnack('Загружены вопросы по умолчанию.');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Поле чудес'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'admin':
+                  _openAdminPanel();
+                  break;
+                case 'settings':
+                  _openSettingsDialog();
+                  break;
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'admin', child: Text('Admin')),
+              PopupMenuItem(value: 'settings', child: Text('Настройки')),
+            ],
+          ),
+        ],
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -490,12 +701,22 @@ class _GameScreenState extends State<GameScreen> {
       ),
       child: Column(
         children: [
-          WheelWidget(
-            sectors: _sectors,
-            stream: _fortuneController.stream,
-            size: wheelSize,
-            isSpinning: _isSpinning,
-            onAnimationEnd: _onWheelAnimationEnd,
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              WheelWidget(
+                sectors: _sectors,
+                stream: _fortuneController.stream,
+                size: wheelSize,
+                isSpinning: _isSpinning,
+                onAnimationEnd: _onWheelAnimationEnd,
+              ),
+              if (_smokeEnabled)
+                WheelSmokeEffect(
+                  active: _isSpinning,
+                  size: wheelSize,
+                ),
+            ],
           ),
           const SizedBox(height: 20),
           SizedBox(
