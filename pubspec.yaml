@@ -25,4 +25,5 @@ flutter:
     - assets/questions.json
     - assets/mystery_questions.json
     - assets/gifs/
-    - assets/sounds/
+    - assets/sounds/wheel_spin.mp3
+    - assets/sounds/wheel_stop.mp3
