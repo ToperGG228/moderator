@@ -549,11 +549,11 @@ class _GameScreenState extends State<GameScreen> {
                     ),
             ),
             Positioned(
-              top: 12,
-              right: 12,
+              bottom: 16,
+              right: 16,
               child: SafeArea(
                 child: PopupMenuButton<String>(
-                  offset: const Offset(0, 46),
+                  offset: const Offset(0, -8),
                   onSelected: (value) {
                     switch (value) {
                       case 'admin':
