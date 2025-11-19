@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:characters/characters.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'game_logic.dart';
 import 'gif_catalog.dart';
 import 'models.dart';
+import 'sound_manager.dart';
 import 'widgets/letter_keyboard.dart';
 import 'widgets/team_panel.dart';
 import 'widgets/wheel_widget.dart';
@@ -55,8 +55,6 @@ class _GameScreenState extends State<GameScreen> {
   int _pendingSectorIndex = 0;
   List<String> _gifOptions = const [];
   String? _statusMessage;
-  late final AudioPlayer _spinPlayer = AudioPlayer();
-  late final AudioPlayer _stopPlayer = AudioPlayer();
   bool _soundEnabled = true;
   bool _smokeEnabled = true;
   List<GameQuestion> _defaultQuestions = const [];
@@ -72,8 +70,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _fortuneController.close();
-    _spinPlayer.dispose();
-    _stopPlayer.dispose();
+    SoundManager.instance.dispose();
     super.dispose();
   }
 
@@ -88,6 +85,7 @@ class _GameScreenState extends State<GameScreen> {
       _engine = GameEngine(questions: questions, mysteryQuestions: mystery);
       _isLoading = false;
     });
+    SoundManager.instance.enabled = _soundEnabled;
   }
 
   List<WheelSector> _createDefaultSectors() {
@@ -119,7 +117,8 @@ class _GameScreenState extends State<GameScreen> {
       _statusMessage = 'Колесо в пути...';
       _pointsPerLetter = 0;
     });
-    _startSpinSound();
+    SoundManager.instance.playSpinVoice();
+    SoundManager.instance.playWheelSpin();
     final random = Random().nextInt(_sectors.length);
     _pendingSectorIndex = random;
     _fortuneController.add(random);
@@ -128,8 +127,7 @@ class _GameScreenState extends State<GameScreen> {
   void _onWheelAnimationEnd() {
     if (!_isSpinning) return;
     final sector = _sectors[_pendingSectorIndex];
-    _stopSpinSound();
-    _playStopSound();
+    SoundManager.instance.stopWheelSpin();
     setState(() {
       _isSpinning = false;
       _lastSector = sector;
@@ -137,34 +135,12 @@ class _GameScreenState extends State<GameScreen> {
     _onSectorComplete(sector);
   }
 
-  Future<void> _startSpinSound() async {
-    if (!_soundEnabled) return;
-    try {
-      await _spinPlayer.stop();
-      await _spinPlayer.setReleaseMode(ReleaseMode.loop);
-      await _spinPlayer.setSourceAsset('sounds/wheel_spin.mp3');
-      await _spinPlayer.resume();
-    } catch (_) {}
-  }
-
-  Future<void> _stopSpinSound() async {
-    try {
-      await _spinPlayer.stop();
-    } catch (_) {}
-  }
-
-  Future<void> _playStopSound() async {
-    if (!_soundEnabled) return;
-    try {
-      await _stopPlayer.stop();
-      await _stopPlayer.setSourceAsset('sounds/wheel_stop.mp3');
-      await _stopPlayer.resume();
-    } catch (_) {}
-  }
-
   void _onSectorComplete(WheelSector sector) {
     final engine = _engine;
     if (engine == null) return;
+    if (sector.label.toLowerCase().contains('приз')) {
+      SoundManager.instance.playPrizeSector();
+    }
     switch (sector.type) {
       case WheelSectorType.score:
         setState(() {
@@ -182,6 +158,7 @@ class _GameScreenState extends State<GameScreen> {
         engine.applyBankrupt();
         _statusMessage = 'Банкрот! Очки обнулены';
         setState(() {});
+        SoundManager.instance.playBankrupt();
         break;
       case WheelSectorType.mystery:
         _showMysteryQuestionDialog();
@@ -202,11 +179,13 @@ class _GameScreenState extends State<GameScreen> {
     final hits = engine.revealLetter(letter);
     setState(() {});
     if (hits > 0) {
+      SoundManager.instance.playOpenThenCorrect();
       final gained = hits * _pointsPerLetter;
       engine.awardPoints(gained);
       _showSnack('Открыто $hits букв(ы). +$gained очков!');
       if (engine.isWordSolved) {
         _showSnack('Слово отгадано!');
+        SoundManager.instance.playWinnerFanfare();
         engine.advanceQuestion();
         if (engine.isGameOver) {
           _statusMessage = 'Игра завершена!';
@@ -214,6 +193,7 @@ class _GameScreenState extends State<GameScreen> {
       }
     } else {
       _showSnack('Нет такой буквы. Ход переходит.');
+      SoundManager.instance.playWrongLetter();
       engine.nextTeam();
     }
     setState(() {
@@ -303,12 +283,15 @@ class _GameScreenState extends State<GameScreen> {
     if (selected != null) {
       final hits = engine.revealLetter(selected);
       if (hits > 0) {
+        SoundManager.instance.playOpenThenCorrect();
         _showSnack('Буква $selected открыта $hits раз.');
         if (engine.isWordSolved) {
+          SoundManager.instance.playWinnerFanfare();
           engine.advanceQuestion();
         }
       } else {
         _showSnack('Такой буквы нет.');
+        SoundManager.instance.playWrongLetter();
         engine.nextTeam();
       }
       setState(() {});
@@ -435,8 +418,9 @@ class _GameScreenState extends State<GameScreen> {
                 setState(() {
                   _soundEnabled = value;
                 });
+                SoundManager.instance.enabled = value;
                 if (!value) {
-                  _stopSpinSound();
+                  SoundManager.instance.stopWheelSpin();
                 }
               },
             ),
@@ -534,55 +518,51 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             _buildGlowCircle(const Offset(120, 200), 220, Colors.pinkAccent.withOpacity(0.2)),
             _buildGlowCircle(const Offset(320, 600), 280, Colors.blueAccent.withOpacity(0.15)),
-            SafeArea(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= 1100;
-                        final content = _buildContent(isWide, constraints);
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 400),
-                          child: content,
-                        );
-                      },
-                    ),
-            ),
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth >= 1100;
+                      final content = _buildContent(isWide, constraints);
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        child: content,
+                      );
+                    },
+                  ),
             Positioned(
-              bottom: 16,
-              right: 16,
-              child: SafeArea(
-                child: PopupMenuButton<String>(
-                  offset: const Offset(0, -8),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'admin':
-                        _openAdminPanel();
-                        break;
-                      case 'settings':
-                        _openSettingsDialog();
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'admin', child: Text('Admin')),
-                    PopupMenuItem(value: 'settings', child: Text('Настройки')),
-                  ],
-                  child: Container(
-                    width: 90,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF4C44E9), width: 2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'Меню',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+              bottom: 24,
+              right: 24,
+              child: PopupMenuButton<String>(
+                offset: const Offset(0, -8),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'admin':
+                      _openAdminPanel();
+                      break;
+                    case 'settings':
+                      _openSettingsDialog();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'admin', child: Text('Admin')),
+                  PopupMenuItem(value: 'settings', child: Text('Настройки')),
+                ],
+                child: Container(
+                  width: 100,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF4C44E9), width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Меню',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

@@ -27,3 +27,11 @@ flutter:
     - assets/gifs/
     - assets/sounds/wheel_spin.mp3
     - assets/sounds/wheel_stop.mp3
+    - assets/sounds/wrong_letter.mp3
+    - assets/sounds/yakubovich_spin.mp3
+    - assets/sounds/wheel_spin_1995.mp3
+    - assets/sounds/yakubovich_open.mp3
+    - assets/sounds/correct_letter.mp3
+    - assets/sounds/prize_sector.mp3
+    - assets/sounds/bankrupt.mp3
+    - assets/sounds/winner_fanfare.mp3
