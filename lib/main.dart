@@ -521,30 +521,6 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Поле чудес'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              switch (value) {
-                case 'admin':
-                  _openAdminPanel();
-                  break;
-                case 'settings':
-                  _openSettingsDialog();
-                  break;
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'admin', child: Text('Admin')),
-              PopupMenuItem(value: 'settings', child: Text('Настройки')),
-            ],
-          ),
-        ],
-      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -571,6 +547,46 @@ class _GameScreenState extends State<GameScreen> {
                         );
                       },
                     ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: SafeArea(
+                child: PopupMenuButton<String>(
+                  offset: const Offset(0, 46),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'admin':
+                        _openAdminPanel();
+                        break;
+                      case 'settings':
+                        _openSettingsDialog();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'admin', child: Text('Admin')),
+                    PopupMenuItem(value: 'settings', child: Text('Настройки')),
+                  ],
+                  child: Container(
+                    width: 90,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF4C44E9), width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Меню',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
