@@ -1,0 +1,37 @@
+name: wheel_of_fortune
+version: 1.0.0+1
+description: Игра «Поле чудес» на Flutter
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  characters: ^1.3.0
+  flutter_fortune_wheel: ^1.3.1
+  audioplayers: ^5.2.1
+  file_picker: ^6.1.1
+
+dev_dependencies:
+  flutter_lints: ^3.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/questions.json
+    - assets/mystery_questions.json
+    - assets/gifs/
+    - assets/sounds/wheel_spin.mp3
+    - assets/sounds/wheel_stop.mp3
+    - assets/sounds/wrong_letter.mp3
+    - assets/sounds/yakubovich_spin.mp3
+    - assets/sounds/wheel_spin_1995.mp3
+    - assets/sounds/yakubovich_open.mp3
+    - assets/sounds/correct_letter.mp3
+    - assets/sounds/prize_sector.mp3
+    - assets/sounds/bankrupt.mp3
+    - assets/sounds/winner_fanfare.mp3
