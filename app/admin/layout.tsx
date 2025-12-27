@@ -1,6 +1,17 @@
 import Link from 'next/link';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { authOptions } from '../api/auth/[...nextauth]/options';
+import { UserRole } from '../../lib/types';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    redirect('/login');
+  }
+  if (session.user?.role !== UserRole.ADMIN) {
+    redirect('/');
+  }
   return (
     <div className="container-section py-10">
       <div className="flex flex-col gap-6 md:flex-row">
