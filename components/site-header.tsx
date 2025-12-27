@@ -41,12 +41,20 @@ export function SiteHeader() {
               <User className="h-4 w-4" /> Выйти
             </button>
           ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-2 rounded-full border border-brand px-3 py-1 text-xs text-brand"
-            >
-              <User className="h-4 w-4" /> Войти
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="flex items-center gap-2 rounded-full border border-brand px-3 py-1 text-xs text-brand"
+              >
+                <User className="h-4 w-4" /> Войти
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-full bg-brand px-3 py-1 text-xs text-white"
+              >
+                Регистрация
+              </Link>
+            </div>
           )}
         </nav>
       </div>

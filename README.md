@@ -10,6 +10,11 @@
 - `npm run db:seed` — сидинг с админом и демо-данными.
 - `npm test` — unit и e2e smoke тесты.
 
+## Регистрация и админка
+- Регистрация покупателей доступна по `/register`.
+- Вход по паролю — через `/login` (используется credentials provider).
+- Админ создается сидом. Можно задать `SEED_ADMIN_EMAIL` и `SEED_ADMIN_PASSWORD` в окружении.
+
 ## Быстрый старт (dev)
 ```bash
 npm install

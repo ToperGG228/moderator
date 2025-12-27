@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { FormEvent, useState } from 'react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -58,6 +59,9 @@ export default function LoginPage() {
         >
           Войти через GitHub
         </button>
+        <p className="text-sm text-slate-600">
+          Нет аккаунта? <Link href="/register" className="text-brand">Зарегистрироваться</Link>
+        </p>
       </form>
     </div>
   );

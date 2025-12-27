@@ -22,7 +22,7 @@ export default async function AdminPage() {
   }
   const counts = await getCounts();
   return (
-    <div className="container-section space-y-6 py-10">
+    <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Админ-панель</h1>
       <div className="grid gap-4 md:grid-cols-3">
         {[
