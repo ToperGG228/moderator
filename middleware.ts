@@ -4,7 +4,7 @@ import { getToken } from 'next-auth/jwt';
 import { UserRole } from './lib/types';
 
 export async function middleware(req: NextRequest) {
-  const cookieName = process.env.NEXTAUTH_COOKIE_NAME || undefined;
+  const cookieName = process.env.NEXTAUTH_COOKIE_NAME || 'babushka.session';
   const secret = process.env.NEXTAUTH_SECRET;
   let token = await getToken({
     req,
