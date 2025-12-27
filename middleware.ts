@@ -4,11 +4,18 @@ import { getToken } from 'next-auth/jwt';
 import { UserRole } from './lib/types';
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({
+  const cookieName = process.env.NEXTAUTH_COOKIE_NAME || undefined;
+  const secret = process.env.NEXTAUTH_SECRET;
+  let token = await getToken({
     req,
-    secret: process.env.NEXTAUTH_SECRET,
-    cookieName: process.env.NEXTAUTH_COOKIE_NAME || undefined
+    secret,
+    cookieName
   });
+  if (!token && cookieName && process.env.NODE_ENV === 'production') {
+    token =
+      (await getToken({ req, secret, cookieName: `__Secure-${cookieName}` })) ||
+      (await getToken({ req, secret, cookieName: `__Host-${cookieName}` }));
+  }
   const isAdminRoute = req.nextUrl.pathname.startsWith('/admin');
   if (isAdminRoute) {
     if (!token) {
