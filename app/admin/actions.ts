@@ -33,3 +33,37 @@ export async function updateUserRole(formData: FormData) {
     data: { role }
   });
 }
+
+export async function createCategory(formData: FormData) {
+  const name = String(formData.get('name') || '').trim();
+  const slug = String(formData.get('slug') || '').trim();
+  const imageUrl = String(formData.get('imageUrl') || '').trim();
+  if (!name || !slug) return;
+  await prisma.category.create({
+    data: {
+      name,
+      slug,
+      imageUrl: imageUrl || null
+    }
+  });
+}
+
+export async function createProduct(formData: FormData) {
+  const name = String(formData.get('name') || '').trim();
+  const slug = String(formData.get('slug') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const price = Number(formData.get('price') || 0);
+  const imageUrl = String(formData.get('imageUrl') || '').trim();
+  const categoryId = String(formData.get('categoryId') || '').trim();
+  if (!name || !slug || !description || !price) return;
+  await prisma.product.create({
+    data: {
+      name,
+      slug,
+      description,
+      price,
+      imageUrl: imageUrl || null,
+      categoryId: categoryId || null
+    }
+  });
+}

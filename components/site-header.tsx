@@ -29,6 +29,11 @@ export function SiteHeader() {
               <Shield className="h-4 w-4" /> Админка
             </Link>
           )}
+          {session && (
+            <Link href="/profile" className="flex items-center gap-1">
+              <User className="h-4 w-4" /> Мой профиль
+            </Link>
+          )}
           <Link href="/cart" className="flex items-center gap-1">
             <ShoppingCart className="h-4 w-4" /> Корзина
           </Link>
