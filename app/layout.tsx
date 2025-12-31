@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { Providers } from '../components/providers';
 import { SiteHeader } from '../components/site-header';
 import { SiteFooter } from '../components/site-footer';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'Бабушкины вкусности и рукоделие',
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </main>
             <SiteFooter />
           </div>
+          <Toaster position="top-left" richColors closeButton duration={2800} />
         </Providers>
       </body>
     </html>

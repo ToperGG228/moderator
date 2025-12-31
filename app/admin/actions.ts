@@ -1,7 +1,11 @@
 'use server';
 
+import { Prisma } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/prisma';
 import { OrderStatus, UserRole } from '../../lib/types';
+
+export type ActionState = { ok: boolean; message: string; field?: 'slug' | 'name' | 'form' };
 
 export async function updateProductFlags(formData: FormData) {
   const productId = String(formData.get('productId') || '');
@@ -48,22 +52,58 @@ export async function createCategory(formData: FormData) {
   });
 }
 
-export async function createProduct(formData: FormData) {
+export async function createProduct(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const name = String(formData.get('name') || '').trim();
   const slug = String(formData.get('slug') || '').trim();
   const description = String(formData.get('description') || '').trim();
-  const price = Number(formData.get('price') || 0);
+  const price = Number.parseInt(String(formData.get('price') || '0'), 10);
   const imageUrl = String(formData.get('imageUrl') || '').trim();
-  const categoryId = String(formData.get('categoryId') || '').trim();
-  if (!name || !slug || !description || !price) return;
-  await prisma.product.create({
-    data: {
-      name,
-      slug,
-      description,
-      price,
-      imageUrl: imageUrl || null,
-      categoryId: categoryId || null
+  const categoryId = String(formData.get('categoryId') || '').trim() || null;
+
+  if (!name || !slug || !description || !price) {
+    return { ok: false, message: 'Заполни обязательные поля', field: 'form' };
+  }
+
+  const duplicate = await prisma.product.findFirst({
+    where: {
+      OR: [
+        { slug },
+        {
+          AND: [
+            { name },
+            { categoryId }
+          ]
+        }
+      ]
     }
   });
+
+  if (duplicate?.slug === slug) {
+    return { ok: false, message: 'Такой slug уже существует', field: 'slug' };
+  }
+
+  if (duplicate) {
+    return { ok: false, message: 'Товар с таким названием уже есть в этой категории', field: 'name' };
+  }
+
+  try {
+    await prisma.product.create({
+      data: {
+        name,
+        slug,
+        description,
+        price,
+        imageUrl: imageUrl || null,
+        categoryId
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return { ok: false, message: 'Такой slug уже существует', field: 'slug' };
+    }
+    return { ok: false, message: 'Не удалось сохранить товар', field: 'form' };
+  }
+
+  revalidatePath('/admin');
+  return { ok: true, message: 'Товар добавлен' };
 }

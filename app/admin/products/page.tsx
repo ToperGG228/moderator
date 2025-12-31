@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma';
-import { createProduct, updateProductFlags } from '../actions';
+import { updateProductFlags } from '../actions';
 import Link from 'next/link';
+import { ProductCreateForm } from './product-create-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,57 +30,7 @@ export default async function AdminProductsPage() {
           Перейти в каталог
         </Link>
       </div>
-      <div className="rounded-xl border border-orange-100 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">Новый товар</h2>
-        <form action={createProduct} className="mt-4 grid gap-3 md:grid-cols-2">
-          <input
-            name="name"
-            placeholder="Название"
-            className="rounded-md border px-3 py-2 text-sm"
-            required
-          />
-          <input
-            name="slug"
-            placeholder="Слаг (например, pelmeni-domashnie)"
-            className="rounded-md border px-3 py-2 text-sm"
-            required
-          />
-          <input
-            name="price"
-            type="number"
-            min="0"
-            placeholder="Цена"
-            className="rounded-md border px-3 py-2 text-sm"
-            required
-          />
-          <select
-            name="categoryId"
-            className="rounded-md border px-3 py-2 text-sm"
-            defaultValue=""
-          >
-            <option value="">Без категории</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="imageUrl"
-            placeholder="URL фото"
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
-          />
-          <textarea
-            name="description"
-            placeholder="Описание товара"
-            className="min-h-[96px] rounded-md border px-3 py-2 text-sm md:col-span-2"
-            required
-          />
-          <button type="submit" className="rounded-md bg-brand px-3 py-2 text-sm text-white md:col-span-2">
-            Добавить товар
-          </button>
-        </form>
-      </div>
+      <ProductCreateForm categories={categories} />
       <div className="overflow-x-auto rounded-xl border border-orange-100 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-orange-50 text-slate-700">
