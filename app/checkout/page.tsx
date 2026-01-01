@@ -187,16 +187,15 @@ export default function CheckoutPage() {
           </div>
           <label className="flex items-start gap-2 text-xs text-slate-600">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>
-              Я согласен на обработку персональных данных и с условиями оплаты.{' '}
+            <span className="space-x-1">
+              <span>Я согласен на обработку персональных данных и с условиями оплаты.</span>
               <Link href="/privacy" className="text-brand underline underline-offset-2">
                 Политика конфиденциальности
-              </Link>{' '}
-              и{' '}
+              </Link>
+              <span>/</span>
               <Link href="/terms" className="text-brand underline underline-offset-2">
                 согласие на обработку данных
               </Link>
-              .
             </span>
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
