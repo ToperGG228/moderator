@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
+import { ProductPurchaseActions } from './purchase-actions';
 
 export default async function ProductPage({ params }: { params: { slug: string } }) {
   const product = await prisma.product.findUnique({
@@ -38,7 +39,14 @@ export default async function ProductPage({ params }: { params: { slug: string }
               ))}
             </ul>
           </div>
-          <button className="rounded-md bg-brand px-5 py-2 text-white">Добавить в корзину</button>
+          <ProductPurchaseActions
+            product={{
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              imageUrl: product.imageUrl
+            }}
+          />
         </div>
       </div>
       <section className="grid gap-4 md:grid-cols-3">

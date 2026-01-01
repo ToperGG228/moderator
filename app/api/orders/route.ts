@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../../../lib/prisma';
 import { applyBonusSpend, calculateEarnedBonus } from '../../../lib/bonus';
 import { OrderStatus } from '../../../lib/types';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/options';
 
 const orderSchema = z.object({
   userId: z.string().optional(),
@@ -19,7 +21,8 @@ const orderSchema = z.object({
   deliveryType: z.enum(['pickup', 'delivery']),
   address: z.string().optional(),
   deliveryDate: z.string().optional(),
-  bonusToSpend: z.number().min(0).default(0)
+  bonusToSpend: z.number().min(0).default(0),
+  paymentMethod: z.string().optional()
 });
 
 export async function POST(req: Request) {
@@ -30,11 +33,32 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
   const total = data.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const { spend, remainingToPay } = applyBonusSpend(total, data.bonusToSpend, Number(process.env.BONUS_MAX_PERCENT || 30));
+  const session = await getServerSession(authOptions);
+  const sessionUser = session?.user?.email
+    ? await prisma.user.findUnique({ where: { email: session.user.email } })
+    : null;
+  const userId = data.userId || sessionUser?.id || null;
+
+  if (!userId && data.bonusToSpend > 0) {
+    return NextResponse.json({ error: 'Бонусы доступны только для зарегистрированных пользователей.' }, { status: 400 });
+  }
+
+  let availableBonus = 0;
+  if (userId) {
+    const aggregate = await prisma.bonusTransaction.aggregate({
+      where: { userId },
+      _sum: { amount: true }
+    });
+    availableBonus = aggregate._sum.amount || 0;
+  }
+
+  const maxSpendPercent = Number(process.env.BONUS_MAX_PERCENT || 30);
+  const safeBonusToSpend = Math.min(data.bonusToSpend, availableBonus);
+  const { spend, remainingToPay } = applyBonusSpend(total, safeBonusToSpend, maxSpendPercent);
   const bonusEarned = calculateEarnedBonus(remainingToPay, Number(process.env.BONUS_PERCENT || 5));
   const order = await prisma.order.create({
     data: {
-      userId: data.userId,
+      userId,
       status: OrderStatus.NEW,
       total,
       bonusUsed: spend,
@@ -56,9 +80,17 @@ export async function POST(req: Request) {
     include: { items: true }
   });
 
-  await prisma.bonusTransaction.create({
-    data: { userId: data.userId!, orderId: order.id, amount: bonusEarned, operation: 'EARN' }
-  }).catch(() => undefined);
+  if (userId && spend > 0) {
+    await prisma.bonusTransaction.create({
+      data: { userId, orderId: order.id, amount: -spend, operation: 'SPEND' }
+    }).catch(() => undefined);
+  }
+
+  if (userId && bonusEarned > 0) {
+    await prisma.bonusTransaction.create({
+      data: { userId, orderId: order.id, amount: bonusEarned, operation: 'EARN' }
+    }).catch(() => undefined);
+  }
 
   return NextResponse.json({ order });
 }
