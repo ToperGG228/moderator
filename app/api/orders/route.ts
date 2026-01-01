@@ -51,6 +51,9 @@ export async function POST(req: Request) {
     });
     availableBonus = aggregate._sum.amount || 0;
   }
+  if (data.bonusToSpend > availableBonus) {
+    return NextResponse.json({ error: 'Недостаточно бонусов для списания.' }, { status: 400 });
+  }
 
   const maxSpendPercent = Number(process.env.BONUS_MAX_PERCENT || 30);
   const safeBonusToSpend = Math.min(data.bonusToSpend, availableBonus);

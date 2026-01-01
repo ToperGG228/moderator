@@ -33,6 +33,10 @@ export default function CheckoutPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (bonusToSpend > bonus.balance) {
+      setError('Недостаточно бонусов для списания.');
+      return;
+    }
     if (!consent) {
       setError('Нужно согласиться с обработкой персональных данных.');
       return;
@@ -162,13 +166,38 @@ export default function CheckoutPage() {
               min="0"
               max={bonus.balance}
               value={bonusToSpend}
-              onChange={(e) => setBonusToSpend(Number(e.target.value))}
+              onChange={(e) => {
+                const nextValue = Number(e.target.value);
+                if (Number.isNaN(nextValue)) {
+                  setBonusToSpend(0);
+                  return;
+                }
+                if (nextValue > bonus.balance) {
+                  setError('Недостаточно бонусов для списания.');
+                  setBonusToSpend(bonus.balance);
+                  return;
+                }
+                if (error) {
+                  setError('');
+                }
+                setBonusToSpend(Math.max(0, nextValue));
+              }}
               className="mt-2 w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <label className="flex items-start gap-2 text-xs text-slate-600">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            Я согласен на обработку персональных данных и с условиями оплаты.
+            <span>
+              Я согласен на обработку персональных данных и с условиями оплаты.{' '}
+              <Link href="/privacy" className="text-brand underline underline-offset-2">
+                Политика конфиденциальности
+              </Link>{' '}
+              и{' '}
+              <Link href="/terms" className="text-brand underline underline-offset-2">
+                согласие на обработку данных
+              </Link>
+              .
+            </span>
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           {status === 'success' && (
