@@ -1,0 +1,18 @@
+{
+  email admin@example.com
+}
+
+example.com, www.example.com {
+  encode gzip
+  tls {
+    protocols tls1.2 tls1.3
+  }
+  reverse_proxy web:3000
+  header {
+    Strict-Transport-Security "max-age=63072000; includeSubdomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; script-src 'self'; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https: ws:;"
+  }
+}
